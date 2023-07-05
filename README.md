@@ -3,6 +3,7 @@
 This resource provides the R code to reproduce key results described in Greenwald, Galili Darnell, Hoefflin, et al. "Integrative spatial analysis reveals a multi-layered organization of glioblastoma".
 
 The analyses are divided into 6 main modules:
+
 Module 1: Per sample clustering, metaprogram generation, and spot annotation
 
 Module 2: Spatial coherence and organizational zones
