@@ -31,8 +31,7 @@ Each code module can be run independently.
 The code uploaded here is the working code being used throughout the work on the project. We are currently working on generating a more user-friendly, readable and easy to run code. 
 
 The following metaprogram naming in metadata and some modules matches a pervious version of the text and will be updated to reflect current naming shortly:
-metabolism = Prolif-Metab
-inflammatory.resp = Inflammatory-Mac
+metabolism = Prolif-Metab, inflammatory.resp = Inflammatory-Mac
 
 Requirements
 R (tested in version 4.1.1).
