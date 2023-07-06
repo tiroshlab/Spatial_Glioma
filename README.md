@@ -18,7 +18,7 @@ Module 6: CODEX analysis
 
 ## Getting started
 1. Clone Github repository.
-2. Download and extract the data provided (Inputs.zip)
+2. Download and extract the data provided [Inputs.zip] (https://drive.google.com/file/d/19YULZZbQpXnLwCnOCos5xm2PRFeHbuCe/view?usp=sharing)
 3. Set the working directory to Inputs.
 4. Run one of the 6 code modules in R.
 
@@ -29,6 +29,10 @@ Please note results of modules 1-3 might slightly differ dependending on the ver
 Each code module can be run independently.
 
 The code uploaded here is the working code being used throughout the work on the project. We are currently working on generating a more user-friendly, readable and easy to run code. 
+
+The following metaprogram naming in metadata and some modules matches a pervious version of the text and will be updated to reflect current naming shortly:
+metabolism = Prolif-Metab
+inflammatory.resp = Inflammatory-Mac
 
 Requirements
 R (tested in version 4.1.1).
