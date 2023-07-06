@@ -30,6 +30,8 @@ Each code module can be run independently.
 
 The code uploaded here is the working code being used throughout the work on the project. We are currently working on generating a more user-friendly, readable and easy to run code. 
 
+The MP generation approach is based on our earlier work described in Kinker et al. 2020 and Gavish et al. 2023.  Further documentation can be found [here](https://github.com/gabrielakinker/CCLE_heterogeneity) and [here](https://github.com/tiroshlab/3ca).
+
 The following metaprogram naming in metadata and some modules matches a pervious version of the text and will be updated to reflect current naming shortly:
 metabolism = Prolif-Metab, inflammatory.resp = Inflammatory-Mac
 
