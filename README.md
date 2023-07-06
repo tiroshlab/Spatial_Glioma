@@ -18,7 +18,7 @@ Module 6: CODEX analysis
 
 ## Getting started
 1. Clone Github repository.
-2. Download and extract the data provided [Inputs.zip](https://drive.google.com/file/d/19YULZZbQpXnLwCnOCos5xm2PRFeHbuCe/view?usp=sharing)
+2. Download and extract the data provided in [Inputs.zip](https://drive.google.com/file/d/19YULZZbQpXnLwCnOCos5xm2PRFeHbuCe/view?usp=sharing)
 3. Set the working directory to Inputs.
 4. Run one of the 6 code modules in R.
 
