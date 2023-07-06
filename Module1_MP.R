@@ -705,46 +705,6 @@ grid.draw(lej3)
 
 
 
-
-#################METAPROGRAM CLEANING####################
-#cleaning MPs by removing genes more strongly correlated with other sc MPs (performed only for malignant MPs with a single-cell equivalent MP)
-# genes were filtered from spatial MPs with single-cell equivalent programs in cases where:
-#   1) the gene has a correlation below 0.3 for the spatial MP it belongs to AND
-#   2) the gene has a higher correlation with a single-cell program that is not the single-cell equivalent program of the spatial MP AND
-#   3) the difference between the correlation of the best-matching single-cell program and the single-cell equivalent program of the spatial MP is =>0.2
-#   see Fig. 2 Part for calculation of correlations between individual genes and programs across data types
-malig_ST_SC_corr<-readRDS("/MP/malig_ST_SC_corr.rds")
-spatial_gbm_metaprograms <- readRDS("/MP/NMF/MPs_recluster_preclean.rds")
-spatial_gbm_metaprograms$OPC[[34]] <- NA
-spatial_gbm_metaprograms$OPC[[41]] <- NA
-
-
-spatial_gbm_metaprograms$MES[[36]] <- NA
-spatial_gbm_metaprograms$MES[[35]] <- NA
-spatial_gbm_metaprograms$MES[[18]] <- NA
-spatial_gbm_metaprograms$MES[[28]] <- NA
-spatial_gbm_metaprograms$MES[[45]] <- NA
-
-
-spatial_gbm_metaprograms$NPC[[42]] <- NA
-
-
-spatial_gbm_metaprograms$hypoxia[[26]] <- NA
-
-
-spatial_gbm_metaprograms$AC[[40]] <- NA
-spatial_gbm_metaprograms$AC[[48]] <- NA
-spatial_gbm_metaprograms$AC[[6]] <- NA
-spatial_gbm_metaprograms$AC[[13]] <- NA
-spatial_gbm_metaprograms$AC[[29]] <- NA
-spatial_gbm_metaprograms$AC[[50]] <- NA
-spatial_gbm_metaprograms$AC[[46]] <- NA
-spatial_gbm_metaprograms$AC[[36]] <- NA
-
-
-clean_spatial_gbm_metaprograms<-lapply(spatial_gbm_metaprograms, function(x) x[!is.na(x)])
-
-
 ########SPOT ASSIGNMENTS TO CLEANED METAPROGRAMS##########
 
 # generate normalized exp matrices
