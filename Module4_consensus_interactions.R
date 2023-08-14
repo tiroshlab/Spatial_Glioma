@@ -3,10 +3,10 @@ library(ggvenn)
 # Load data ---------------------------------------------------------------
 
 
-file_list <- list.files("/MP/mp_assign_124/")
+file_list <- list.files("MP/mp_assign_124/")
 
 gen_clusters <- as.character(unique(unlist(sapply(c(1:26), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", file_list[i], sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", file_list[i], sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
@@ -19,9 +19,9 @@ dis_samp <-c("MGH258","UKF251","UKF259","UKF260","UKF275","UKF296","UKF313","ZH1
 
 # structured ----------------------------------------------------------------------
 
-coloc_st <- readRDS("/Summary_tables/colocal_structured_summary.rds")
-conn_st <- readRDS("/Summary_tables/conn_st.rds")
-prox_st <- readRDS("/Summary_tables/prox_st.rds")
+coloc_st <- readRDS("Summary_tables/colocal_structured_summary.rds")
+conn_st <- readRDS("Summary_tables/conn_st.rds")
+prox_st <- readRDS("Summary_tables/prox_st.rds")
 (sum(coloc_st$enriched)+sum(conn_st$enr)+sum(prox_st[,5]$enr))/(length(pairs_names)*length(st_samp)*3)
 
 coloc_st$mean_scaled <- ifelse(coloc_st$mean_enrichment < 1,
@@ -105,9 +105,9 @@ st_summary <- summary_df
 # dis-organized  ---------------------------------------------------------------------
 
 
-coloc_dis <- readRDS("/Summary_tables/colocal_summary_dis.rds")
-conn_dis <- readRDS("/Summary_tables/conn_dis.rds")
-prox_dis <- readRDS("/Summary_tables/prox_dis.rds")
+coloc_dis <- readRDS("Summary_tables/colocal_summary_dis.rds")
+conn_dis <- readRDS("Summary_tables/conn_dis.rds")
+prox_dis <- readRDS("Summary_tables/prox_dis.rds")
 round((sum(coloc_dis$enriched)+sum(conn_dis$enr)+sum(prox_dis[,5]$enr))/(length(pairs_names)*length(dis_samp)*3),2)
 
 coloc_dis$mean_scaled <- ifelse(coloc_dis$mean_enrichment < 1,
@@ -222,7 +222,7 @@ pairs_cons <- sapply(st_pairs_of_intrest, function(p){
 # st vs dis strong coupling by scale  -------------------------------------
 
 
-prox_st <- readRDS("/Summary_tables/prox_st.rds")
+prox_st <- readRDS("Summary_tables/prox_st.rds")
 summary_prox10 <- data.frame(pair = pairs_names,
                              analysis = rep("prox10", 91),
                              prop = prox_st[,10]$prop,
@@ -250,7 +250,7 @@ st_p12  <- length(summary_prox12$pair[summary_prox12$analysis == "prox12" & summ
 st_p15  <- length(st_summary$pair[st_summary$analysis == "prox15" & st_summary$mean_scaled > 0.35 & st_summary$prop >= 0.2])
 
 
-prox_dis <- readRDS("/Summary_tables/prox_dis.rds")
+prox_dis <- readRDS("Summary_tables/prox_dis.rds")
 summary_prox10 <- data.frame(pair = pairs_names,
                              analysis = rep("prox10", 91),
                              prop = prox_dis[,10]$prop,
@@ -316,17 +316,17 @@ only_dis <- dis_p8_pairs[!(dis_p8_pairs %in% stdis_int)]
 st_samp <-c("ZH1007_INF","ZH1007_NEC_B","ZH1019_T1_A","ZH1041_T1_B","ZH811_1_B","ZH811_T1_v6","ZH916_2_B","ZH916_T1_B")
 dis_samp <-c("MGH258_v6","ZH1019_INF","ZH916_INF","ZH811_INF_v6")
 
-cell_df <- readRDS("/Codex/cells_codex_20230423.rds")
+cell_df <- readRDS("Codex/cells_codex_20230423.rds")
 codex_mp <- sort(unique(cell_df$cell_type_figure)) 
 codex_mp <- codex_mp[!(codex_mp %in% c("artifact","unknown"))]
 pairs <- combn(codex_mp,2)
 pairs_names <- apply(pairs, 2, function(x){return(paste(x[1],x[2], sep = " "))})
 
-con_sum_st <- readRDS("/Codex/summary_dis_visual_figure.rds") #change here for diff zone 
+con_sum_st <- readRDS("Codex/summary_dis_visual_figure.rds") #change here for diff zone 
 
 
-load("/Codex/summary_df_pairs.RData")
-load("/Codex/summary_df_pairs_spot3.RData")
+load("Codex/summary_df_pairs.RData")
+load("Codex/summary_df_pairs_spot3.RData")
 
 con_coloc0 <- summary_dis_spot1 #change here for diff zone
 con_coloc3 <- summary_dis_spot3 #change here for diff zone 

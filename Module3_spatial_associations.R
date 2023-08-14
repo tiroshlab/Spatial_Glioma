@@ -8,24 +8,24 @@ library(cocor)
 
 # Adjacency  --------------------------------------------------------------
 
-sample_ls <- (read.delim("/general/GBM_data/GBM_samples.txt", header = FALSE))$V1
+sample_ls <- (read.delim("general/GBM_data/GBM_samples.txt", header = FALSE))$V1
 
 gen_clusters <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
-all_zones <- readRDS("/Spatial_coh_zones/final_zones.rds")
+all_zones <- readRDS("Spatial_coh_zones/final_zones.rds")
 
 extend_metadata <- tibble()
 generate_metadata <- sapply(c(1:length(sample_ls)), function(i){
   print(sample_ls[i])
   
   # load data
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -69,9 +69,9 @@ adj_st_mal <- neighbs_stats
 #print(paste("I got the samp right", sname))
 
 sname <- "" #insert sample name 
-file_list <- list.files("/MP/mp_assign_124/")
+file_list <- list.files("MP/mp_assign_124/")
 gen_clusters <- as.character(unique(unlist(sapply(c(1:26), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", file_list[i], sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", file_list[i], sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
@@ -80,10 +80,10 @@ pairs <- combn(sort(gen_clusters),2)
 pairs_names <- apply(pairs, 2, function(x){return(paste(x[1],x[2], sep = " "))})
 
 # load data
-spots_positions <- read.csv(paste("/general/GBM_data/", sname , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+spots_positions <- read.csv(paste("general/GBM_data/", sname , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
 row.names(spots_positions) <- spots_positions$V1
 
-spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sname, ".rds", sep = ""))
+spots_clusters <- readRDS(paste("MP/mp_assign_124/", sname, ".rds", sep = ""))
 spots_clusters <- na.omit(spots_clusters)
 colnames(spots_clusters) <- c("barcodes", "spot_type")
 row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -144,9 +144,9 @@ row.names(sample_proximity) <- pairs_names
 #sname <- str_replace(sname, "\r", "")
 
 sname <- "" #insert sample name 
-file_list <- list.files("/MP/mp_assign_124/")
+file_list <- list.files("MP/mp_assign_124/")
 gen_clusters <- as.character(unique(unlist(sapply(c(1:26), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", file_list[i], sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", file_list[i], sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
@@ -156,10 +156,10 @@ pairs_names <- apply(pairs, 2, function(x){return(paste(x[1],x[2], sep = " "))})
 rand_num <- 500
 
 # load data
-spots_positions_orign <- read.csv(paste("/general/GBM_data/", sname , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+spots_positions_orign <- read.csv(paste("general/GBM_data/", sname , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
 row.names(spots_positions_orign) <- spots_positions_orign$V1
 
-spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sname, ".rds", sep = ""))
+spots_clusters <- readRDS(paste("MP/mp_assign_124/", sname, ".rds", sep = ""))
 spots_clusters <- na.omit(spots_clusters)
 colnames(spots_clusters) <- c("barcodes", "spot_type")
 row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -225,30 +225,30 @@ sample_sd_rand_prox <- round(apply(array(unlist(all_rand), c(length(pairs_names)
 # regional comp downstream ------------------------------------------------
 
 
-file_list <- list.files("/MP/mp_assign_124/")
+file_list <- list.files("MP/mp_assign_124/")
 gen_clusters <- as.character(unique(unlist(sapply(c(1:26), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", file_list[i], sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", file_list[i], sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
-samp_list <- list.files("/MP/mp_assign_124/")
+samp_list <- list.files("MP/mp_assign_124/")
 
 pairs <- combn(sort(gen_clusters),2)
 pairs_names <- apply(pairs, 2, function(x){return(paste(x[1],x[2], sep = " "))})
-all_zones <- readRDS("/Spatial_coh_zones/spatial_zonesv3.rds")
+all_zones <- readRDS("Spatial_coh_zones/spatial_zonesv3.rds")
 
-all_proximity_list <- list.files("/Spatial_coh_zones/proximity_samples/")
+all_proximity_list <- list.files("Spatial_coh_zones/proximity_samples/")
 
 all_proximity <- lapply(all_proximity_list, function(prox){
-  samp_prox <- readRDS(paste("/Spatial_coh_zones/proximity_samples/", prox, sep = ""))
+  samp_prox <- readRDS(paste("Spatial_coh_zones/proximity_samples/", prox, sep = ""))
   return(samp_prox)
 })
 names(all_proximity) <- sapply(str_split(all_proximity_list, "_"), function(x){return(x[1])})
 
-all_proximity_rand_list <- list.files("/Spatial_coh_zones/proximity_rand_samples/")
+all_proximity_rand_list <- list.files("Spatial_coh_zones/proximity_rand_samples/")
 
 all_proximity_rand <- lapply(all_proximity_rand_list, function(prox){
-  samp_prox <- readRDS(paste("/Spatial_coh_zones/proximity_rand_samples/", prox, sep = ""))
+  samp_prox <- readRDS(paste("Spatial_coh_zones/proximity_rand_samples/", prox, sep = ""))
   return(samp_prox)
 })
 names(all_proximity_rand) <- sapply(str_split(all_proximity_rand_list, "_"), function(x){return(x[1])})
@@ -272,13 +272,13 @@ Heatmap(na.omit(combined_proximity), cluster_columns = FALSE, column_title = "Me
 # regional comp downstream significant ---------------------------------------------------
 
 spots_numv1 <-sapply(samp_list, function(smp){
-  samp_df <- readRDS(paste("/MP/mp_assign_124/", smp, sep = ""))
+  samp_df <- readRDS(paste("MP/mp_assign_124/", smp, sep = ""))
   return(nrow(samp_df))
 })
 names(spots_numv1) <- sapply(str_split(names(spots_numv1), "\\."), function(x){return(x[1])})
 
 spots_num <-sapply(samp_list, function(smp){
-  samp_df <- readRDS(paste("/MP/mp_assign_124/", smp, sep = ""))
+  samp_df <- readRDS(paste("MP/mp_assign_124/", smp, sep = ""))
   pairs_n <- sapply(c(1:ncol(pairs)),function(p){
     p_table <- samp_df[samp_df$spot_type_meta_new %in% c(pairs[,p]),]
     return(nrow(p_table))
@@ -599,7 +599,7 @@ neighbor_spot_props <- function(metadata,
                                 zscore_thresh = 1) {
   # Load variables
   all_states <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), function(i){
-    mp_assign <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+    mp_assign <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
     return(unique(mp_assign$spot_type_meta_new))
   }))))
   #samples_metadata <- readRDS(file = here("Analysis/Metadata/samples_metadata.rds"))

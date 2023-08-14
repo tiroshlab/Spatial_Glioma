@@ -24,7 +24,7 @@ library(readr)
 
 #######################per sample Leiden clustering##############################
 
-samples_names <- (read.delim("/general/GBM_samples.txt", header = FALSE, sep = "\t"))$V1
+samples_names <- (read.delim("general/GBM_samples.txt", header = FALSE, sep = "\t"))$V1
 
 # set parameters 
 complexity_filter <- 1000
@@ -41,7 +41,7 @@ dim2use_list <- c(8,20,19,9,12,14,16,10,10,14,8,10,12,16,7,5,14,16,4,12,6,6,8,12
 leiden_clustering <- sapply(c(1:length(samples_names)), function(i){
   print(samples_names[i])
   # load spatial data
-  unfilt_obj<-Load10X_Spatial(data.dir = paste("/general/GBM_data/",samples_names[i],"/outs", sep = ""),
+  unfilt_obj<-Load10X_Spatial(data.dir = paste("general/GBM_data/",samples_names[i],"/outs", sep = ""),
                               filename = "filtered_feature_bc_matrix.h5",
                               assay = "Spatial",
                               slice = "detected_tissue_image.jpg",
@@ -64,6 +64,7 @@ leiden_clustering <- sapply(c(1:length(samples_names)), function(i){
   
   # PCA
   exp_obj <- RunPCA(exp_obj, features = VariableFeatures(object = exp_obj))
+  #PCA dims to use determined by Jackstraw
   #exp_obj <- JackStraw(exp_obj, num.replicate = 100)
   #exp_obj <- ScoreJackStraw(exp_obj, dims = 1:n_dim)
   #js_scores <- exp_obj@reductions$pca@jackstraw$overall.p.values
@@ -228,7 +229,7 @@ sname <- # enter sample name here
 rank_lb <- 2
 rank_ub <- 11
 
-m <- readRDS(paste0("/MP/NMF/NMF_mats_GBM/", sname, ".rds"))
+m <- readRDS(paste0("MP/NMF/NMF_mats_GBM/", sname, ".rds"))
 m <- as.matrix(m)
 res <- NMF::nmf(x = m, rank = rank_lb:rank_ub, nrun = 5, method = "snmf/r", .opt = list(debug=F, parallel=F, shared.memory=F, verbose=T))
 
@@ -276,7 +277,7 @@ robust_nmf_programs <- function(nmf_programs, intra_min = 30, intra_max = 10, in
 custom_magma <- c(colorRampPalette(c("white", rev(magma(323, begin = 0.15))[1]))(10), rev(magma(323, begin = 0.18)))
 
 ## Create list of NMF matrics where each sample is an entry
-path <- setwd("/MP/NMF/out_dir/")
+path <- setwd("MP/NMF/out_dir/")
 sample_ls <- list.files(path)
 
 ## Create list of NMF matrics where each sample is an entry
@@ -312,7 +313,7 @@ nmf_programs_sig <- lapply(nmf_programs_sig, function(x) x[, is.element(colnames
 nmf_programs_sig <- do.call(cbind, nmf_programs_sig)
 
 #leiden clusters
-all_leiden_programs<-readRDS("/MP/all_leiden_programs_v2.rds")
+all_leiden_programs<-readRDS("MP/all_leiden_programs_v2.rds")
 all_leiden_programs <- do.call(cbind, all_leiden_programs)
 nmf_programs_sig<-cbind(nmf_programs_sig,all_leiden_programs)
 
@@ -324,8 +325,8 @@ nmf_intersect_hc_all <- hclust(as.dist(50-nmf_intersect), method="average")
 nmf_intersect_hc_all <- reorder(as.dendrogram(nmf_intersect_hc_all), colMeans(nmf_intersect))
 nmf_intersect         <- nmf_intersect[order.dendrogram(nmf_intersect_hc_all), order.dendrogram(nmf_intersect_hc_all)]
 
-nmf_intersect<-readRDS("/MP/NMF/nmf_intersect_124.RDS")
-nmf_programs_sig<-readRDS("/MP/NMF/nmf_programs_sig_124.RDS")
+nmf_intersect<-readRDS("MP/NMF/nmf_intersect_124.RDS")
+nmf_programs_sig<-readRDS("MP/NMF/nmf_programs_sig_124.RDS")
 
 
 ### use a clustering approach that updates MPs in each iteration 
@@ -453,10 +454,10 @@ names(MP_list)=c("Neuron","Vasc","MES.Hyp","Mac","OPC.AC","Oligo","LQ.Chromatin.
 
 
 #######RECLUSTERING/HEIRARCHICAL CLUSTERING, EXTENDED MPs, AND SUBCLUSTER PROGRAMS ################
-programs_ls<-readRDS("/MP/NMF/programs_ls_124.rds") #this is "nmf_programs_sig"
-Cluster_list<-readRDS("/MP/NMF/Cluster_list_124.rds")
+programs_ls<-readRDS("MP/NMF/programs_ls_124.rds") #this is "nmf_programs_sig"
+Cluster_list<-readRDS("MP/NMF/Cluster_list_124.rds")
 str(Cluster_list)
-MP_list<-readRDS("/MP/NMF/combined_gbm_metaprograms_raw_124.rds")
+MP_list<-readRDS("MP/NMF/combined_gbm_metaprograms_raw_124.rds")
 
 #reclustering OPC.AC into 2 clusters
 opc.ac <- Cluster_list[[5]]
@@ -708,7 +709,7 @@ grid.draw(lej3)
 ########SPOT ASSIGNMENTS TO CLEANED METAPROGRAMS##########
 
 # generate normalized exp matrices
-file_paths <- list.files(path ="/general/exp_mats_GBM/counts_mat/", pattern = "\\.rds", full.names = TRUE)
+file_paths <- list.files(path ="general/exp_mats_GBM/counts_mat/", pattern = "\\.rds", full.names = TRUE)
 sample_ls <-  gsub(pattern = "\\.rds$", replacement = "", x = basename(file_paths))
 sample_ls->samples_names
 sample_ls->samples
@@ -739,7 +740,7 @@ for (i in seq_along(per_sample_mat)){
 #generate a list with the filtered exp matrix for each sample, i.e. m_proc<-(per_sample_mat[[1]])
 score_mat <- lapply(c(1:length(per_sample_mat)), function(i){
   m_proc<-per_sample_mat[[i]]
-  metaprograms_gene_list <- readRDS("/MP/clean_spatial_gbm_metaprograms_124.rds")
+  metaprograms_gene_list <- readRDS("MP/clean_spatial_gbm_metaprograms_124.rds")
   signatures <- scalop::sigScores(m_proc, metaprograms_gene_list, expr.center = TRUE, conserved.genes = 0.5)
   
   spot_scores <- data.frame(spot_names = rownames(signatures))

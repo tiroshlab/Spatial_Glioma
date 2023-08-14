@@ -13,17 +13,17 @@ library(biomaRt)
 
 # Load Data (counts mat exported from Seurat post-spot filtering:
 
-samples_names <- (read.delim("/CNA/cna_samples.txt", header = FALSE))$V1
-sample_ls <- (read.delim("/general/GBM_samples.txt", header = FALSE))$V1
+samples_names <- (read.delim("CNA/cna_samples.txt", header = FALSE))$V1
+sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
 
-norm_brain_ref1<-readRDS("/CNA/normal_brain_ref/UKF256_C.rds")
+norm_brain_ref1<-readRDS("CNA/normal_brain_ref/UKF256_C.rds")
 colnames(norm_brain_ref1) <- paste(colnames(norm_brain_ref1), "_ref1", sep="") 
 
-norm_brain_ref2<-readRDS("/CNA/normal_brain_ref/UKF265_C.rds")
+norm_brain_ref2<-readRDS("CNA/normal_brain_ref/UKF265_C.rds")
 colnames(norm_brain_ref2) <- paste(colnames(norm_brain_ref2), "_ref2", sep="") 
 
 
-samples_regions <- read.delim("/CNA/samples_regions.txt", header = TRUE)
+samples_regions <- read.delim("CNA/samples_regions.txt", header = TRUE)
 
 
 # merged samples cna --------------------------------------------------------
@@ -32,7 +32,7 @@ samples_num <- c(15:18)
 merge_cna <- mclapply(samples_num, merge_cna_md_fx, mc.cores = 4)
 
 merge_cna_md_fx <- function(i){
-  m1 <- readRDS(paste("/general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
+  m1 <- readRDS(paste("general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
   m <- cbind(m1,norm_brain_ref1,norm_brain_ref2)
   
   scaling_factor <- 1000000/colSums(m) #tumor mat processing
@@ -71,7 +71,7 @@ merge_cna_md_fx <- function(i){
   
   
   # calc CNA
-  hg19<- readRDS("/CNA/hg38.rds")
+  hg19<- readRDS("CNA/hg38.rds")
   cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
   sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
   metadata$CNAsig_org <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]
@@ -104,7 +104,7 @@ samples_num <- c(1:26)
 all_cna <- mclapply(samples_num, all_cna_fx, mc.cores = 26)
 
 all_cna_fx <- function(i){
-  m1 <- readRDS(paste("/general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
+  m1 <- readRDS(paste("general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
   m <- cbind(m1,norm_brain_ref1,norm_brain_ref2)
   
   scaling_factor <- 1000000/colSums(m) #tumor mat processing
@@ -128,7 +128,7 @@ all_cna_fx <- function(i){
   
   
   # calc CNA
-  hg19<- readRDS("/CNA/hg38.rds")
+  hg19<- readRDS("CNA/hg38.rds")
   cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
   sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
   metadata$CNAsig_org <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]

@@ -4,10 +4,10 @@ library(patchwork)
 
 # load data ---------------------------------------------------------------
 
-sample_ls <- (read.delim("/general/GBM_samples.txt", header = FALSE))$V1
+sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
 
 gen_clusters <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), function(i){
-  mp_assign <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
@@ -24,10 +24,10 @@ all_scores_fx <- function(i){
   #print(sample_ls[i])
   
   # load data
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -93,7 +93,7 @@ all_scores_fx <- function(i){
 
 # define dis-organized zones ------------------------------------------------------------
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win5v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win5v3.rds")
 hist(unlist(all_scores), breaks = 100, main = "radius 5: spatial coherence socres", xlab = "spatial coherence score")
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -103,7 +103,7 @@ all_zones5 <- sapply(c(1:length(sample_ls)), function(i){
   return(set_zones)
 })
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win8v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win8v3.rds")
 hist(unlist(all_scores)[unlist(all_scores) > 0 & unlist(all_scores) < 1], breaks = 100, main = "radius 8: spatial coherence socres", xlab = "spatial coherence score")
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -113,7 +113,7 @@ all_zones10 <- sapply(c(1:length(sample_ls)), function(i){
   return(set_zones)
 })
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win11v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win11v3.rds")
 hist(unlist(all_scores)[unlist(all_scores) > 0 & unlist(all_scores) < 1], breaks = 100, main = "radius 11: spatial coherence socres", xlab = "spatial coherence score")
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -142,10 +142,10 @@ win_size <- 4
 
 all_smooth <- sapply(c(1:26),function(i){
   print(sample_ls[i])
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes
@@ -169,7 +169,7 @@ all_smooth <- sapply(c(1:26),function(i){
 
 # define struct zones -----------------------------------------------------
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win5v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win5v3.rds")
 hist(unlist(all_scores), breaks = 100)
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -179,7 +179,7 @@ all_zones5 <- sapply(c(1:length(sample_ls)), function(i){
   return(set_zones)
 })
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win8v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win8v3.rds")
 hist(unlist(all_scores)[unlist(all_scores) > 0 & unlist(all_scores) < 1], breaks = 100)
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -189,7 +189,7 @@ all_zones10 <- sapply(c(1:length(sample_ls)), function(i){
   return(set_zones)
 })
 
-all_scores <- readRDS("/Spatial_coh_zones/sc_windows/spatial_win11v3.rds")
+all_scores <- readRDS("Spatial_coh_zones/sc_windows/spatial_win11v3.rds")
 hist(unlist(all_scores)[unlist(all_scores) > 0 & unlist(all_scores) < 1], breaks = 100)
 th1 <- as.numeric(quantile(na.omit(unlist(all_scores)),probs = (seq(0,1,0.1)))[5])
 
@@ -217,10 +217,10 @@ all_zones <- sapply(c(1:26),function(i){
 win_size <- 4
 all_smooth_struct <- sapply(c(1:26),function(i){
   print(sample_ls[i])
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes
@@ -282,10 +282,10 @@ sturct2use <- c(1:26)[!is_small[3,]]
 spatial_score_zones <- lapply(c(1:length(sample_ls)), function(i){
   # load data
   print(sample_ls[i])
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -343,7 +343,7 @@ spatial_score_zones <- lapply(c(1:length(sample_ls)), function(i){
 
 # plot Relationship between spot purity and spatial coherence -------------
 
-purity_score_scaled <- readRDS("/CNA/purity.rds")
+purity_score_scaled <- readRDS("CNA/purity.rds")
 
 all_dis_purity <- sapply(c(1:26), function(i){
   dis_purity <- purity_score_scaled[[i]][all_zones[[i]] == "dis"]
@@ -363,7 +363,7 @@ hist(unlist(all_st_purity))
 zones_class_fin <- sapply(c(1:26), function(i){
   print(sample_ls[[i]])
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[[i]], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[[i]], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes  
@@ -391,10 +391,10 @@ names(zones_class_fin) <- sample_ls
 zone.colors <- c(structured_mal = "#cf5e4e",structured_norm = "#a82203", disorganized_mal = "#208cc0", disorganized_norm = "#003967",intermediate ="#f1af3a")
 sapply(c(1:26), function(i){
   print(sample_ls[[i]])
-  spots_positions <- read.csv(paste("/general/GBM_data/", sample_ls[[i]] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[[i]] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
   row.names(spots_positions) <- spots_positions$V1
   
-  spots_clusters <- readRDS(paste("/MP/mp_assign_124/", sample_ls[[i]], ".rds", sep = ""))
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[[i]], ".rds", sep = ""))
   spots_clusters <- na.omit(spots_clusters)
   colnames(spots_clusters) <- c("barcodes", "spot_type")
   row.names(spots_clusters)<- spots_clusters$barcodes  

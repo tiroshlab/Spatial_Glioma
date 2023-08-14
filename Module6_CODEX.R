@@ -113,9 +113,9 @@ levels_samples_disorganised <-
 
 
 #Import log-transformed and normalized matrix and cell_table
-nmat <- readRDS("/Codex/mat_norm.RDS")
-cells <- readRDS("/Codex/cell_table.RDS")
-marker <- readRDS("/Codex/marker.RDS")
+nmat <- readRDS("Codex/mat_norm.RDS")
+cells <- readRDS("Codex/cell_table.RDS")
+marker <- readRDS("Codex/marker.RDS")
 
 ##########################################
 # Calculate cell densities per cell type##
