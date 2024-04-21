@@ -1,14 +1,146 @@
 library(stringr)
 library(cocor)
+library(dplyr)
+library(data.table)
+library(stats)
+library(scalop)
+library(tibble)
+library(ggrepel)
+library(tidyr)
+library(scales)
+library(matrixStats)
 
 # Run functions first
 
 # co-localization  ---------------------------------------------------------
+#### log-transform expression matrices 
 
+sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
+
+gen_clusters <- unique(unlist(sapply(c(1:length(sample_ls)), function(i){
+  mp_assign <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  return(unique(mp_assign$spot_type_meta_new))
+})))
+mp_names <- sort(as.character(gen_clusters))
+
+
+per_sample_mat <- list()
+for(i in seq_along(sample_ls)) {
+  m <- readRDS(paste("general/exp_mats_GBM/", sample_ls[i], "counts.rds", sep = ""))
+  m <- m[-grep("^MT-|^RPL|^RPS", rownames(m)), ]
+  if(min(colSums(m)) == 0){m <- m[, colSums(m) != 0]}
+  scaling_factor <- 1000000/colSums(m)
+  m_CPM <- sweep(m, MARGIN = 2, STATS = scaling_factor, FUN = "*")
+  m_loged <- log2(1 + (m_CPM/10))
+  # removing genes with zero variance across all cells
+  var_filter <- apply(m_loged, 1, var)
+  m_proc <- m_loged[var_filter != 0, ]
+  # filtering out lowly expressed genes
+  exp_genes <- rownames(m_proc)[(rowMeans(m_proc) > 0.4)]
+  m_proc <- m_proc[exp_genes, ]
+  # output to a list 
+  per_sample_mat[[i]] <- m_proc
+  names(per_sample_mat)[i] <- sample_ls[[i]]
+  rm(path, files, m, m_CPM, m_loged, var_filter, exp_genes, m_proc)
+}
+
+#### scoring based matrices 
+
+metaprograms_gene_list <- readRDS("MP/clean_spatial_gbm_metaprograms_124.rds")
+
+all_decon <- lapply(c(1:length(per_sample_mat)), function(i){
+  m_proc<-per_sample_mat[[i]]
+  signatures <- scalop::sigScores(m_proc, metaprograms_gene_list, expr.center = TRUE, conserved.genes = 0.5)
+  score_vecs<-t(signatures)
+  scored_filt <- apply(score_vecs, 2, function(x) {
+    if(length(x[x > 0]) == 0) {prop_vec <- setNames(rep(0, nrow(score_vecs)), rownames(score_vecs))}
+    get_positives <- x[x > 0.1] #all scores >=0.1 - consider cell state present in that spot
+    prop_vec <- setNames(rep(0, nrow(score_vecs)), rownames(score_vecs))
+    prop_vec <- setNames(ifelse(rownames(score_vecs) %in% names(get_positives), yes =  get_positives[match(names(prop_vec), names( get_positives))], no = 0), rownames(score_vecs))
+    return(prop_vec)
+  })
+  #convert to df
+  new_decon_df <- as.data.frame(t(scored_filt)) %>% rownames_to_column(var = "barcodes")
+  new_decon_mtrx <- new_decon_df %>%
+    tibble::column_to_rownames("barcodes") %>%
+    as.matrix()
+  return(new_decon_mtrx)
+})
+names(all_decon) <- sample_ls
+
+#### co-localiztion
+results<-list()
+for(i in seq_along(names(all_decon))) {
+  decon <- all_decon[[sample_ls[i]]]
+  spot_list <- lapply(c(1:500),function(x){ #num. of shuffled matrices
+    all_row <- sapply(c(1:dim(decon)[2]),function(c){
+      new_row <- sample(c(1:length(row.names(decon))), length(row.names(decon)), replace = FALSE)
+      return(new_row) 
+    })
+    new_mat <- sapply(c(1:dim(decon)[2]),function(c){
+      sh_row <- decon[,c][all_row[,c]]#generate many deconv matrices by shuffling cell types
+      return(sh_row)
+    })
+    colnames(new_mat) <- colnames(decon)
+    return(new_mat)
+  }) 
+  
+  #run colocal_mat_fun -- perform colocalization on the shuffled decon matrices
+  mats_list<- lapply(spot_list, function(new_decon){
+    colocal_mats<-colocal_mat(new_decon)
+    return(colocal_mats)
+  })
+  mean_mat <- sapply(mats_list,function(x){ #expected colocalization calculated from shuffled decon matrices
+    return(x[,"ab_comb"])
+  })
+  pairs_shuf_mean <- apply(mean_mat,1,mean)
+  names(pairs_shuf_mean) <- mats_list[[1]][,"pairs"]
+  rownames(mean_mat) <- mats_list[[1]][,"pairs"]
+  
+  obs_coloc <- colocal_mat(decon)
+  
+  r1 = obs_coloc$ab_comb #observed colocal
+  r2 = pairs_shuf_mean #expected colocal
+  
+  n = dim(decon)[1] #num total spots
+  
+  fisher = ((0.5*log((1+r1)/(1-r1)))-(0.5*log((1+r2)/(1-r2))))/((1/(n-3))+(1/(n-3)))^0.5
+  
+  p.value = (2*(1-pnorm(abs(as.matrix(fisher)))))
+  effect_size <- r1/r2 #observed/expected
+  results[[i]]<-data.frame(pvalue = p.value,
+                           effect_size = effect_size)
+  
+}
+names(results) <- sample_ls
+
+results2<-lapply(results, dplyr::add_rownames, 'pairs')
+results2<- lapply(results2,function(x){
+  as.matrix(x)
+})
+results2 <- lapply(results2, function(x){rownames(x) <- x[,1]; x})
+df <- do.call("rbind", results2)
+
+###volcano plot (all pairs, all samples)###
+df->results_comb2
+results_comb2<-as.data.frame(results_comb2)
+results_comb2$pvalue<-as.numeric(results_comb2$pvalue)
+results_comb2$effect_size<-as.numeric(results_comb2$effect_size)
+results_comb2$sig <- "NO"
+results_comb2$sig[results_comb2$effect_size >= 1.3 & results_comb2$pvalue <= 0.01] <- "enriched"
+results_comb2$sig[results_comb2$effect_size <= 0.7 & results_comb2$pvalue <= 0.01] <- "depleted"
+results_comb2$label <- NA
+results_comb2$label[results_comb2$sig != "NO"] <- results_comb2$pairs[results_comb2$sig != "NO"]
+
+ggplot(data=results_comb2, aes(x=effect_size, y=-log10(pvalue), col=sig, label=label)) + 
+  geom_point() + 
+  theme_minimal() +
+  geom_text_repel()+
+  theme(text = element_text(size = 20))
 
 # Adjacency  --------------------------------------------------------------
 
-sample_ls <- (read.delim("general/GBM_data/GBM_samples.txt", header = FALSE))$V1
+sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
 
 gen_clusters <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), function(i){
   mp_assign <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
@@ -57,7 +189,7 @@ neighbs_stats <- neighbor_spot_props(metadata = extend_metadata,
                                      zscore_thresh = 1)
 
 
-adj_st_mal <- neighbs_stats
+
 
 # regional comp  (Previously run by server. Possible to run per sample below)----------------------------------------------------------
 
@@ -224,7 +356,6 @@ sample_sd_rand_prox <- round(apply(array(unlist(all_rand), c(length(pairs_names)
 
 # regional comp downstream ------------------------------------------------
 
-
 file_list <- list.files("MP/mp_assign_124/")
 gen_clusters <- as.character(unique(unlist(sapply(c(1:26), function(i){
   mp_assign <- readRDS(paste("MP/mp_assign_124/", file_list[i], sep = ""))
@@ -263,7 +394,7 @@ combined_proximity <- t(sapply(c(1:length(pairs_names)), function(i){
   return(apply(pair_prox,1,function(x){mean(na.omit(as.numeric(x)))}))
 }))
 
-row.names(combined_proximity) <- pairs_names
+row.names(combined_proximity) <- row.names(all_proximity[[1]])
 
 
 
@@ -309,6 +440,49 @@ names(proximity_bin) <- names(all_proximity)
 
 ######## Functions ---------------------------------------------------------------
 
+
+
+# # co-localization functions  ---------------------------------------------
+# Count interactions between pairs 
+colocal_mat <- function(x) {
+  stopifnot(
+    is.matrix(x), is.numeric(x),
+    all(dim(x) > 0), ncol(x) > 1)
+  
+  if (is.null(colnames(x))) {
+    colnames(x) <- seq_len(ncol(x))
+  }
+  df <- calc_pairs(x)
+  df <- compute_interactions(x, df)
+  return(df)
+}
+
+calc_pairs <- function(x) {
+  x <- x > 0
+  ab <- combn(colnames(x), 2)
+  y <- apply(ab, 2, function(.) sum(matrixStats::rowAlls(x[, ., drop = FALSE])))
+  df <- data.frame(t(ab), y)
+  names(df) <- c("pair1", "pair2", "n")
+  return(df)
+}
+
+compute_interactions <- function(x, df) {
+  y <- colnames(x)
+  df$a <- factor(df$pair1, levels = y)
+  df$b <- factor(df$pair2, levels = rev(y))
+  t <- colSums(x > 0)
+  a <- match(df$pair1, y)
+  b <- match(df$pair2, y)
+  df$ta <- t[a]
+  df$tb <- t[b]
+  df$pa <- df$n / df$ta
+  df$pb <- df$n / df$tb
+  df$ab_mean <- (df$pa + df$pb) / 2
+  df$ab_comb <- df$n / (df$ta + df$tb)
+  df$ab_comb2 <- df$n / (df$ta * df$tb)
+  df$pairs <- paste(df$a, df$b)
+  return(df)
+}
 
 # Adjacency Helper Functions -------------------------------------------
 
@@ -1128,4 +1302,84 @@ win_prox_neighbors_table_func <- function(spots_positions,spots_clusters){
 }
 
 
-
+prox_neighbors_table_func <- function(spots_positions,spots_clusters){
+  neighbors_table <- sapply(spots_clusters$barcodes, function(spot){
+    spots_row = spots_positions[spots_positions$V1 == spot, 3]
+    spots_col = spots_positions[spots_positions$V1 == spot, 4]
+    
+    if (spots_col == 0 | spots_row == 0) {
+      n1 = NA
+    } else {
+      n1_temp = spots_positions$V1[spots_positions$V3 == spots_row - 1 & spots_positions$V4 == spots_col - 1]
+      if (spots_positions$V2[spots_positions$V1 == n1_temp] == 0 | !(n1_temp %in% spots_clusters$barcodes)){
+        n1 = NA
+      } else {
+        n1 = n1_temp
+      }
+    }
+    
+    if (spots_col == 127 | spots_row == 0) {
+      n2 = NA
+    } else {
+      n2_temp = spots_positions$V1[spots_positions$V3 == spots_row - 1 & spots_positions$V4 == spots_col + 1]
+      if (spots_positions$V2[spots_positions$V1 == n2_temp] == 0 | !(n2_temp %in% spots_clusters$barcodes)){
+        n2 = NA
+      } else {
+        n2 = n2_temp
+      }
+    }
+    
+    if (spots_col == 0 | spots_col == 1) {
+      n3 = NA
+    } else {
+      n3_temp = spots_positions$V1[spots_positions$V3 == spots_row & spots_positions$V4 == spots_col - 2]
+      if (spots_positions$V2[spots_positions$V1 == n3_temp] == 0 | !(n3_temp %in% spots_clusters$barcodes)){
+        n3 = NA
+      } else {
+        n3 = n3_temp
+      }
+    }
+    
+    if (spots_col == 126 | spots_col == 127) {
+      n4 = NA
+    } else {
+      n4_temp = spots_positions$V1[spots_positions$V3 == spots_row & spots_positions$V4 == spots_col + 2]
+      if (spots_positions$V2[spots_positions$V1 == n4_temp] == 0 | !(n4_temp %in% spots_clusters$barcodes)){
+        n4 = NA
+      } else {
+        n4 = n4_temp
+      }
+    }
+    
+    if (spots_col == 0 | spots_row == 77) {
+      n5 = NA
+    } else {
+      n5_temp = spots_positions$V1[spots_positions$V3 == spots_row + 1 & spots_positions$V4 == spots_col - 1]
+      if (spots_positions$V2[spots_positions$V1 == n5_temp] == 0 | !(n5_temp %in% spots_clusters$barcodes)){
+        n5 = NA
+      } else {
+        n5 = n5_temp
+      }
+    }
+    
+    if (spots_col == 127 | spots_row == 77) {
+      n6 = NA
+    } else {
+      n6_temp = spots_positions$V1[spots_positions$V3 == spots_row + 1 & spots_positions$V4 == spots_col + 1]
+      if (spots_positions$V2[spots_positions$V1 == n6_temp] == 0 | !(n6_temp %in% spots_clusters$barcodes)){
+        n6 = NA
+      } else {
+        n6 = n6_temp
+      }
+    }
+    
+    
+    return(c(n1,n2,n3,n4,n5,n6))
+    
+  })
+  
+  neighbors_table = t(neighbors_table)
+  row.names(neighbors_table) = spots_clusters$barcodes
+  
+  return(neighbors_table)
+}

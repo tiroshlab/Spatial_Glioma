@@ -1,6 +1,7 @@
 library(patchwork)
+library(parallel)
 
-# Run functions first
+#!!! Run Functions section first
 
 # load data ---------------------------------------------------------------
 
@@ -11,7 +12,7 @@ gen_clusters <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), functi
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
-win_size <- 11 # run for c(5,8,11) 
+win_size <- 5 # run for c(5,8,11) 
 rand_num <- 100
 
 # calculate spatial coherence by window (Alt. skip and use saved results in next section) ----------------------------------------------------------
@@ -343,7 +344,7 @@ spatial_score_zones <- lapply(c(1:length(sample_ls)), function(i){
 
 # plot Relationship between spot purity and spatial coherence -------------
 
-purity_score_scaled <- readRDS("CNA/purity.rds")
+purity_score_scaled <- readRDS("CNA/mal_lev.rds")
 
 all_dis_purity <- sapply(c(1:26), function(i){
   dis_purity <- purity_score_scaled[[i]][all_zones[[i]] == "dis"]
@@ -750,6 +751,88 @@ win_prox_neighbors_table_func <- function(spots_positions,spots_clusters){
         n6 = NA
       } else {
         n6 = as.character(spots_clusters$spot_type[spots_clusters$barcodes == n6_temp])
+      }
+    }
+    
+    
+    return(c(n1,n2,n3,n4,n5,n6))
+    
+  })
+  
+  neighbors_table = t(neighbors_table)
+  row.names(neighbors_table) = spots_clusters$barcodes
+  
+  return(neighbors_table)
+}
+
+prox_neighbors_table_func <- function(spots_positions,spots_clusters){
+  neighbors_table <- sapply(spots_clusters$barcodes, function(spot){
+    spots_row = spots_positions[spots_positions$V1 == spot, 3]
+    spots_col = spots_positions[spots_positions$V1 == spot, 4]
+    
+    if (spots_col == 0 | spots_row == 0) {
+      n1 = NA
+    } else {
+      n1_temp = spots_positions$V1[spots_positions$V3 == spots_row - 1 & spots_positions$V4 == spots_col - 1]
+      if (spots_positions$V2[spots_positions$V1 == n1_temp] == 0 | !(n1_temp %in% spots_clusters$barcodes)){
+        n1 = NA
+      } else {
+        n1 = n1_temp
+      }
+    }
+    
+    if (spots_col == 127 | spots_row == 0) {
+      n2 = NA
+    } else {
+      n2_temp = spots_positions$V1[spots_positions$V3 == spots_row - 1 & spots_positions$V4 == spots_col + 1]
+      if (spots_positions$V2[spots_positions$V1 == n2_temp] == 0 | !(n2_temp %in% spots_clusters$barcodes)){
+        n2 = NA
+      } else {
+        n2 = n2_temp
+      }
+    }
+    
+    if (spots_col == 0 | spots_col == 1) {
+      n3 = NA
+    } else {
+      n3_temp = spots_positions$V1[spots_positions$V3 == spots_row & spots_positions$V4 == spots_col - 2]
+      if (spots_positions$V2[spots_positions$V1 == n3_temp] == 0 | !(n3_temp %in% spots_clusters$barcodes)){
+        n3 = NA
+      } else {
+        n3 = n3_temp
+      }
+    }
+    
+    if (spots_col == 126 | spots_col == 127) {
+      n4 = NA
+    } else {
+      n4_temp = spots_positions$V1[spots_positions$V3 == spots_row & spots_positions$V4 == spots_col + 2]
+      if (spots_positions$V2[spots_positions$V1 == n4_temp] == 0 | !(n4_temp %in% spots_clusters$barcodes)){
+        n4 = NA
+      } else {
+        n4 = n4_temp
+      }
+    }
+    
+    if (spots_col == 0 | spots_row == 77) {
+      n5 = NA
+    } else {
+      n5_temp = spots_positions$V1[spots_positions$V3 == spots_row + 1 & spots_positions$V4 == spots_col - 1]
+      if (spots_positions$V2[spots_positions$V1 == n5_temp] == 0 | !(n5_temp %in% spots_clusters$barcodes)){
+        n5 = NA
+      } else {
+        n5 = n5_temp
+      }
+    }
+    
+    if (spots_col == 127 | spots_row == 77) {
+      n6 = NA
+    } else {
+      n6_temp = spots_positions$V1[spots_positions$V3 == spots_row + 1 & spots_positions$V4 == spots_col + 1]
+      if (spots_positions$V2[spots_positions$V1 == n6_temp] == 0 | !(n6_temp %in% spots_clusters$barcodes)){
+        n6 = NA
+      } else {
+        n6 = n6_temp
       }
     }
     

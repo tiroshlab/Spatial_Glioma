@@ -39,7 +39,7 @@ summary_coloc <- data.frame(pair = coloc_st$pair,
 
 new_pair <- as.character(sapply(summary_coloc$pair, function(p1){
   splt <- strsplit(p1, " ")[[1]]
-  new_name <- sapply(pairs_names,function(p2){
+  new_name <- sapply(row.names(conn_st),function(p2){
     splt2 <- strsplit(p2, " ")[[1]]
     if(splt[1] %in% splt2 & splt[2] %in% splt2) {
       return(p2)
@@ -57,7 +57,7 @@ summary_adj <- data.frame(pair = row.names(conn_st),
                           prop = conn_st$prop,
                           mean_scaled = conn_st$mean_scaled)
 
-summary_prox5 <- data.frame(pair = pairs_names,
+summary_prox5 <- data.frame(pair = row.names(conn_st),
                             analysis = rep("prox5", 91),
                             prop = prox_st[,5]$prop,
                             mean_scaled = prox_st[,5]$mean_score)
@@ -67,7 +67,7 @@ summary_prox5$mean_scaled <- ifelse(summary_prox5$mean_scaled < 0,
                                     ((summary_prox5$mean_scaled - min(na.omit(summary_prox5$mean_scaled)))/(max(na.omit(summary_prox5$mean_scaled))-min(na.omit(summary_prox5$mean_scaled)))))
 
 
-summary_prox8 <- data.frame(pair = pairs_names,
+summary_prox8 <- data.frame(pair = row.names(conn_st),
                             analysis = rep("prox8", 91),
                             prop = prox_st[,8]$prop,
                             mean_scaled = prox_st[,8]$mean_score)
@@ -76,7 +76,7 @@ summary_prox8$mean_scaled <- ifelse(summary_prox8$mean_scaled < 0,
                                     ((summary_prox8$mean_scaled - min(na.omit(summary_prox8$mean_scaled)))/(max(na.omit(summary_prox8$mean_scaled))-min(na.omit(summary_prox8$mean_scaled)))) - 1,
                                     ((summary_prox8$mean_scaled - min(na.omit(summary_prox8$mean_scaled)))/(max(na.omit(summary_prox8$mean_scaled))-min(na.omit(summary_prox8$mean_scaled)))))
 
-summary_prox15 <- data.frame(pair = pairs_names,
+summary_prox15 <- data.frame(pair = row.names(conn_st),
                              analysis = rep("prox15", 91),
                              prop = prox_st[,15]$prop,
                              mean_scaled = prox_st[,15]$mean_score)
@@ -125,7 +125,7 @@ summary_coloc <- data.frame(pair = coloc_dis$pairs,
 
 new_pair <- as.character(sapply(summary_coloc$pair, function(p1){
   splt <- strsplit(p1, " ")[[1]]
-  new_name <- sapply(pairs_names,function(p2){
+  new_name <- sapply(row.names(conn_dis),function(p2){
     splt2 <- strsplit(p2, " ")[[1]]
     if(splt[1] %in% splt2 & splt[2] %in% splt2) {
       return(p2)
@@ -143,7 +143,7 @@ summary_adj <- data.frame(pair = row.names(conn_dis),
                           prop = conn_dis$prop,
                           mean_scaled = conn_dis$mean_scaled)
 
-summary_prox5 <- data.frame(pair = pairs_names,
+summary_prox5 <- data.frame(pair = row.names(conn_dis),
                             analysis = rep("prox5", 91),
                             prop = prox_dis[,5]$prop,
                             mean_scaled = prox_dis[,5]$mean_score)
@@ -153,7 +153,7 @@ summary_prox5$mean_scaled <- ifelse(summary_prox5$mean_scaled < 0,
                                     ((summary_prox5$mean_scaled - min(na.omit(summary_prox5$mean_scaled)))/(max(na.omit(summary_prox5$mean_scaled))-min(na.omit(summary_prox5$mean_scaled)))))
 
 
-summary_prox8 <- data.frame(pair = pairs_names,
+summary_prox8 <- data.frame(pair = row.names(conn_dis),
                             analysis = rep("prox8", 91),
                             prop = prox_dis[,8]$prop,
                             mean_scaled = prox_dis[,8]$mean_score)
@@ -162,7 +162,7 @@ summary_prox8$mean_scaled <- ifelse(summary_prox8$mean_scaled < 0,
                                     ((summary_prox8$mean_scaled - min(na.omit(summary_prox8$mean_scaled)))/(max(na.omit(summary_prox8$mean_scaled))-min(na.omit(summary_prox8$mean_scaled)))) - 1,
                                     ((summary_prox8$mean_scaled - min(na.omit(summary_prox8$mean_scaled)))/(max(na.omit(summary_prox8$mean_scaled))-min(na.omit(summary_prox8$mean_scaled)))))
 
-summary_prox15 <- data.frame(pair = pairs_names,
+summary_prox15 <- data.frame(pair = row.names(conn_dis),
                              analysis = rep("prox15", 91),
                              prop = prox_dis[,15]$prop,
                              mean_scaled = prox_dis[,15]$mean_score)
@@ -209,14 +209,6 @@ prox_dis <- names(t_dis2)
 dis_pairs <- unique(c(colocPadj_dis, intersect(colocOadj_dis,prox_dis)))
 
 
-st_summary[st_summary$pair %in% st_pairs_of_intrest,c("pair", "pattern")]
-dis_summary[dis_summary$pair %in% st_pairs_of_intrest,c("pair", "pattern")]
-
-pairs_cons <- sapply(st_pairs_of_intrest, function(p){
-  st_pat <- unique(st_summary$pattern[st_summary$pair == p])
-  dis_pat <- unique(dis_summary$pattern[dis_summary$pair == p])
-  return(st_pat == dis_pat)
-})
 
 
 # st vs dis strong coupling by scale  -------------------------------------
@@ -310,128 +302,4 @@ only_st <- st_p8_pairs[!(st_p8_pairs %in% stdis_int)]
 only_dis <- dis_p8_pairs[!(dis_p8_pairs %in% stdis_int)]
 
 
-
-# CODEX load data -----------------------------------------------------
-
-st_samp <-c("ZH1007_INF","ZH1007_NEC_B","ZH1019_T1_A","ZH1041_T1_B","ZH811_1_B","ZH811_T1_v6","ZH916_2_B","ZH916_T1_B")
-dis_samp <-c("MGH258_v6","ZH1019_INF","ZH916_INF","ZH811_INF_v6")
-
-cell_df <- readRDS("Codex/cells_codex_20230423.rds")
-codex_mp <- sort(unique(cell_df$cell_type_figure)) 
-codex_mp <- codex_mp[!(codex_mp %in% c("artifact","unknown"))]
-pairs <- combn(codex_mp,2)
-pairs_names <- apply(pairs, 2, function(x){return(paste(x[1],x[2], sep = " "))})
-
-con_sum_st <- readRDS("Codex/summary_dis_visual_figure.rds") #change here for diff zone 
-
-
-load("Codex/summary_df_pairs.RData")
-load("Codex/summary_df_pairs_spot3.RData")
-
-con_coloc0 <- summary_dis_spot1 #change here for diff zone
-con_coloc3 <- summary_dis_spot3 #change here for diff zone 
-
-con_coloc3$pair <- paste(con_coloc3$from_cell_type, con_coloc3$to_cell_type, sep = "_") 
-
-pair_num <- length(pairs_names)
-tot_samp <- 0.33333333 # 0.66666667 (st) 0.33333333 (dis)
-
-# CODEX adjust coloc  -----------------------------------------------------------------
-
-con_coloc0$pair <- str_replace(con_coloc0$pair, "MES_hyp", "MS_hyp")
-tmp_codex_mp <- str_replace(codex_mp,"MES_hyp", "MS_hyp")
-
-new_pair <- as.character(sapply(con_coloc0$pair, function(p1){
-  splt <- strsplit(p1, " ")[[1]]
-  is_mp <- sapply(tmp_codex_mp, function(mp){
-    return(grepl(mp, p1, fixed = TRUE))
-  })
-  if (length(which(is_mp)) == 1){
-    new_name <- paste(names(which(is_mp))[1],names(which(is_mp))[1], sep = " ")
-  } else {
-    new_name <- paste(names(which(is_mp))[1],names(which(is_mp))[2], sep = " ")
-  }
-  return(new_name)
-}))
-
-new_pair <- str_replace(new_pair, "MS_hyp", "MES_hyp")
-con_coloc0$pair <- new_pair
-con_coloc0$percent_samples <- con_coloc0$percent_samples/tot_samp
-
-agg_mean <- aggregate(mean ~ pair, data = con_coloc0, mean)
-agg_samp <- aggregate(percent_samples ~ pair, data = con_coloc0, mean)
-
-con_coloc0 <- merge(agg_mean,agg_samp,by="pair")
-
-con_coloc3$pair <- str_replace(con_coloc3$pair, "MES_hyp", "MS_hyp")
-
-new_pair <- as.character(sapply(con_coloc3$pair, function(p1){
-  splt <- strsplit(p1, " ")[[1]]
-  is_mp <- sapply(tmp_codex_mp, function(mp){
-    return(grepl(mp, p1, fixed = TRUE))
-  })
-  if (length(which(is_mp)) == 1){
-    new_name <- paste(names(which(is_mp))[1],names(which(is_mp))[1], sep = " ")
-  } else {
-    new_name <- paste(names(which(is_mp))[1],names(which(is_mp))[2], sep = " ")
-  }
-  return(new_name)
-}))
-
-new_pair <- str_replace(new_pair, "MS_hyp", "MES_hyp")
-con_coloc3$pair <- new_pair
-con_coloc3$percent_samples <- con_coloc3$percent_samples/tot_samp
-
-agg_mean <- aggregate(mean ~ pair, data = con_coloc3, mean)
-agg_samp <- aggregate(percent_samples ~ pair, data = con_coloc3, mean)
-
-con_coloc3 <- merge(agg_mean,agg_samp,by="pair")
-
-
-# CODEX summary_tables  ----------------------------------------------------------
-
-summary_df1 <- data.frame(pair = pairs_names,
-                          analysis = rep("coloc0", pair_num),
-                          prop = con_coloc0$percent_samples[match(pairs_names, con_coloc0$pair)],
-                          mean_scaled = con_coloc0$mean[match(pairs_names, con_coloc0$pair)])
-
-summary_df1$mean_scaled <- ifelse(summary_df1$mean_scaled < 0,
-                                  ((summary_df1$mean_scaled - min(na.omit(summary_df1$mean_scaled)))/(max(na.omit(summary_df1$mean_scaled))-min(na.omit(summary_df1$mean_scaled)))) - 1,
-                                  ((summary_df1$mean_scaled - min(na.omit(summary_df1$mean_scaled)))/(max(na.omit(summary_df1$mean_scaled))-min(na.omit(summary_df1$mean_scaled)))))
-
-
-
-
-summary_df2 <- data.frame(pair = pairs_names,
-                          analysis = rep("coloc3",pair_num),
-                          prop = con_coloc3$percent_samples[match(pairs_names, con_coloc3$pair)],
-                          mean_scaled = con_coloc3$mean[match(pairs_names, con_coloc3$pair)])
-
-summary_df2$mean_scaled <- ifelse(summary_df2$mean_scaled < 0,
-                                  ((summary_df2$mean_scaled - min(na.omit(summary_df2$mean_scaled)))/(max(na.omit(summary_df2$mean_scaled))-min(na.omit(summary_df2$mean_scaled)))) - 1,
-                                  ((summary_df2$mean_scaled - min(na.omit(summary_df2$mean_scaled)))/(max(na.omit(summary_df2$mean_scaled))-min(na.omit(summary_df2$mean_scaled)))))
-
-summary_df_coloc <- rbind(summary_df1,summary_df2)
-summary_df <- rbind(summary_df_coloc,con_sum_st[,c("pair","analysis","prop","mean_scaled")])
-
-summary_df <- summary_df[summary_df$analysis != "prox0",]
-analysis_list <- c("coloc0","coloc3","prox5","prox8","prox15")
-
-pairs_mean <- sapply(unique(summary_df$pair),function(p){
-  p_df <- summary_df[summary_df$pair == p & summary_df$analysis %in% analysis_list,]
-  return(mean(na.omit(p_df$mean_scaled)))
-})
-
-summary_df$pair_mean <- sapply(summary_df$pair, function(p){
-  return(pairs_mean[p])
-})
-
-summary_df$pattern <- ifelse(summary_df$pair_mean > 0.49, "connected",
-                             ifelse(summary_df$pair_mean < -0.5, "dis connected","mix"))
-
-order_row <- names(sort(pairs_mean))
-summary_df$pair <- factor(summary_df$pair, levels = order_row)
-summary_df$pattern <- factor(summary_df$pattern, levels = c("connected", "mix","dis connected"))
-order_col <- c("coloc0","coloc3","prox5","prox8","prox15")
-summary_df$analysis <- factor(summary_df$analysis, levels = order_col)
 

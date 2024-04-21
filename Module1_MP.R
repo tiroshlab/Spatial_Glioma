@@ -21,8 +21,12 @@ library(dplyr)
 library(data.table)
 library(stringr)
 library(readr)
+library(Matrix)
+library(bigmemory)
+library(doMC)
+library(patchwork)
 
-#######################per sample Leiden clustering##############################
+###### Per sample Leiden clustering##############################
 
 samples_names <- (read.delim("general/GBM_samples.txt", header = FALSE, sep = "\t"))$V1
 
@@ -54,9 +58,6 @@ leiden_clustering <- sapply(c(1:length(samples_names)), function(i){
   exp_obj[["percent.mt"]] <- PercentageFeatureSet(exp_obj, pattern = "^MT-") # filter spots with high percent (mitochondrial_filter) mitochondrial genes
   exp_obj <- subset(exp_obj, subset = percent.mt<mitochondrial_filter)
   
-  #count_mat <- as.matrix(GetAssayData(exp_obj, slot = "counts"))
-  #saveRDS(count_mat, paste("exp_mats_GBM/", samples_names[i], "counts.rds", sep =""))
-  
   # normalization and centering
   exp_obj <- NormalizeData(exp_obj, assay = "Spatial", normalization.method="LogNormalize", scale.factor=10000)
   exp_obj <- FindVariableFeatures(exp_obj, selection.method = "vst", nfeatures = genes_filter) # use only #genes_filter most variable genes
@@ -69,14 +70,12 @@ leiden_clustering <- sapply(c(1:length(samples_names)), function(i){
   #exp_obj <- ScoreJackStraw(exp_obj, dims = 1:n_dim)
   #js_scores <- exp_obj@reductions$pca@jackstraw$overall.p.values
   #dim2use <- max(js_scores[,"PC"][js_scores[,"Score"] < dim_filter])
-  
   dim2use <- dim2use_list[i]
   
   # clustering
   exp_obj <- FindNeighbors(exp_obj, dims = 1:dim2use)
   exp_obj <- FindClusters(exp_obj, algorithm=4, resolution = res_param) # leiden based clustering
-  #print(SpatialPlot(exp_obj,label = FALSE, stroke=0, image.alpha = 0, crop = TRUE, pt.size.factor = 1.8, cols=distinct16_pal) + scale_fill_manual(values=distinct16_pal))
-  
+
   spatial_sample_programs <- FindAllMarkers(exp_obj, only.pos = TRUE, return.thresh = sig_th)
   
   genes_num <- table(spatial_sample_programs$cluster)
@@ -214,18 +213,13 @@ sapply(c(1:26), function(i){
 
 
 
-# NMF (Previously run by server. Possible to run per sample below)---------------------------------------------------------------------
+###### NMF (Previously run by server. Possible to run per sample below)---------------------------------------------------------------------
 
 #!/usr/bin/env Rscript
 #args = commandArgs(trailingOnly = TRUE)
 
-library(Matrix)
-library(NMF)
-library(bigmemory)
-library(doMC)
 
-
-sname <- # enter sample name here 
+sname <- "MGH258"# enter sample name here 
 rank_lb <- 2
 rank_ub <- 11
 
@@ -234,7 +228,7 @@ m <- as.matrix(m)
 res <- NMF::nmf(x = m, rank = rank_lb:rank_ub, nrun = 5, method = "snmf/r", .opt = list(debug=F, parallel=F, shared.memory=F, verbose=T))
 
 
-#####Generation of NMF + Leiden GBM spatial metaprograms#########
+###### Generation of NMF + Leiden GBM spatial metaprograms#########
 
 #
 
@@ -277,7 +271,7 @@ robust_nmf_programs <- function(nmf_programs, intra_min = 30, intra_max = 10, in
 custom_magma <- c(colorRampPalette(c("white", rev(magma(323, begin = 0.15))[1]))(10), rev(magma(323, begin = 0.18)))
 
 ## Create list of NMF matrics where each sample is an entry
-path <- setwd("MP/NMF/out_dir/")
+path <- "MP/NMF/out_dir/"
 sample_ls <- list.files(path)
 
 ## Create list of NMF matrics where each sample is an entry
@@ -295,17 +289,11 @@ for(i in seq_along(sample_ls)) {
   names(prog_genes_ls)[i] <- paste0(samp_name)
   rm(nmf_obj, nmf_mats, get_basis)
 }
-prog_genes_ls <- do.call(c, list(prog_genes_ls))
+Genes_nmf_w_basis <- do.call(c, list(prog_genes_ls))
 
-
-Genes_nmf_w_basis <- prog_genes_ls #  Genes_nmf_w_basis  - list with gene matrices (all NMFs stacked). Each sample is an entry in the list
-nmf_programs_sig <- prog_genes_ls
-
-# ----------------------------------------------------------------------------------------------------
 # Find robust NMFs
-# ----------------------------------------------------------------------------------------------------
 # get gene programs (top 50 genes by NMF score)
-nmf_programs_sig <- lapply(Genes_nmf_w_basis, function(x) apply(x, 2, function(y) names(sort(y, decreasing = T))[1:50]))
+nmf_programs_sig <- lapply(prog_genes_ls, function(x) apply(x, 2, function(y) names(sort(y, decreasing = T))[1:50]))
 
 # for each sample, select robust NMF programs (i.e. observed using different ranks in the same sample), remove redundancy due to multiple ranks, and apply a filter based on the similarity to programs from other samples. 
 nmf_filter_all <- robust_nmf_programs(nmf_programs_sig, intra_min = 35, intra_max = 10, inter_filter=T, inter_min = 10)
@@ -445,19 +433,17 @@ ggplot(data = nmf_intersect_meltI_NEW, aes(x=Var1, y=Var2, fill=100*value/(100-v
   guides(fill = guide_colourbar(barheight = 4, barwidth = 1))
 
 
-#### SAVE MPs : 
-#saveRDS(MP_list,"/home/labs/tirosh/spatial_glioma/results/NMF/combined_gbm_metaprograms_no_ann.rds")
 MP <-  do.call(cbind, MP_list)
-#write.csv(MP, file = "/home/labs/tirosh/spatial_glioma/results/NMF/combined_gbm_metaprograms.csv")
 
 names(MP_list)=c("Neuron","Vasc","MES.Hyp","Mac","OPC.AC","Oligo","LQ.Chromatin.reg","MES","Prolif.Metab","MES.Ast","Reactive.Ast","NPC","Inflammatory.Mac")
 
 
-#######RECLUSTERING/HEIRARCHICAL CLUSTERING, EXTENDED MPs, AND SUBCLUSTER PROGRAMS ################
+###### RECLUSTERING/HEIRARCHICAL CLUSTERING, EXTENDED MPs, AND SUBCLUSTER PROGRAMS ################
 programs_ls<-readRDS("MP/NMF/programs_ls_124.rds") #this is "nmf_programs_sig"
 Cluster_list<-readRDS("MP/NMF/Cluster_list_124.rds")
 str(Cluster_list)
 MP_list<-readRDS("MP/NMF/combined_gbm_metaprograms_raw_124.rds")
+
 
 #reclustering OPC.AC into 2 clusters
 opc.ac <- Cluster_list[[5]]
@@ -497,9 +483,8 @@ metaprog_annotation_plot <- ggplot(metaprog_df, aes(x = factor(cells, levels = c
 
 egg::ggarrange(p1, metaprog_annotation_plot, ncol = 1, nrow = 2, heights = c(40, 2))
 
-#clust_list <- list(names(clusterCut[clusterCut == 1]), names(clusterCut[clusterCut == 2]))use this ordering to reorder cluster 5 in main MP heatmap
-clust_list_ac_opc <- c(names(clusterCut[clusterCut == 1]),names(clusterCut[clusterCut == 2]))#use this ordering to reorder cluster 5 in main MP heatmap
-mp_freqs <- sapply(clust_list, function(k) sort(table(unlist(opc.ac_mat[k])), decreasing = T), simplify = F)
+clust_list_ac_opc <- list(names(clusterCut[clusterCut == 1]), names(clusterCut[clusterCut == 2])) # use this ordering to reorder cluster 5 in main MP heatmap
+mp_freqs <- sapply(clust_list_ac_opc, function(k) sort(table(unlist(opc.ac_mat[k])), decreasing = T), simplify = F)
 opc.ac_metaprograms <- sapply(mp_freqs, function(tab) head(names(tab)[tab >= 3], 50), simplify = F)
 names(opc.ac_metaprograms)<-c("AC","OPC")
 
@@ -547,169 +532,24 @@ mp_freqs <- sapply(clust_list, function(k) sort(table(unlist(chromatin_mat[k])),
 chromatin_metaprograms <- sapply(mp_freqs, function(tab) head(names(tab)[tab >= 3], 50), simplify = F)
 names(chromatin_metaprograms)<-c("LQ1","chromatin_clean","LQ2")
 chromatin_metaprogram_clean<-chromatin_metaprograms$chromatin_clean
-#saveRDS(chromatin_metaprogram_clean,"/home/labs/tirosh/spatial_glioma/results/NMF/chromatin_clean_MP.rds")
+
 
 clust_list2 <- list(names(clusterCut[clusterCut == 1]), names(clusterCut[clusterCut == 3]),names(clusterCut[clusterCut == 2]))
 #this is the order to use for the final MP heatmap
 clust_list_chromatin <- c(names(clusterCut[clusterCut == 1]), names(clusterCut[clusterCut == 2]),names(clusterCut[clusterCut == 3]))
 
-######MPs after OP/AC split and LQ/chromatin.reg split#######
+###### MPs after OP/AC split and LQ/chromatin.reg split#######
 MP_list2<-MP_list[-c(5,7)]
-names(MP_list2)<-c("neuron","vascular","hypoxia","macrophage","oligo","MES","metabolism","AC.MES","reactive.astrocyte","NPC","inflammatory.resp")
+
 MP_list2[["chromatin.reg"]] <- chromatin_metaprogram_clean
 MP_list2[["OPC"]] <- opc.ac_metaprograms$OPC
 MP_list2[["AC"]] <- opc.ac_metaprograms$AC
 
 
-#######GENERATION OF FINAL METAPROGRAM JACCARD HEATMAP###########
-#update Cluster_list to reflect new ordering for AC_OPC and chromatin clusters
-Cluster_list[["Cluster_5"]] <- clust_list_ac_opc
-Cluster_list[["Cluster_7"]] <- clust_list_chromatin
-#saveRDS(Cluster_list,"/home/labs/tirosh/spatial_glioma/results/NMF/Cluster_list_124.rds")
-
-####Jaccard heatmap keeping cluster order of redefined clusters
-inds_sorted <- c()
-for (j in 1:length(Cluster_list)){
-  inds_sorted <- c(inds_sorted , match(Cluster_list[[j]] , colnames(nmf_intersect_KEEP)))
-}
-inds_sorted->inds_new
-#inds_new <- c(inds_sorted   ,   which(is.na( match(1:dim(nmf_intersect_KEEP)[2],inds_sorted)))) ### combine inds in clusters with inds without clusters
-
-# plot re-ordered similarity matrix heatmap     
-nmf_intersect_meltI_NEW <- reshape2::melt(nmf_intersect_KEEP[inds_new,inds_new]) 
-
-ggplot(data = nmf_intersect_meltI_NEW, aes(x=Var1, y=Var2, fill=100*value/(100-value), color=100*value/(100-value))) + 
-  geom_tile() + 
-  scale_color_gradient2(limits=c(2,25), low=custom_magma[1:111],  mid =custom_magma[112:222], high = custom_magma[223:333], midpoint = 13.5, oob=squish, name="Similarity\n(Jaccard index)") +                                
-  scale_fill_gradient2(limits=c(2,25), low=custom_magma[1:111],  mid =custom_magma[112:222], high = custom_magma[223:333], midpoint = 13.5, oob=squish, name="Similarity\n(Jaccard index)")  +
-  theme( axis.ticks = element_blank(), panel.border = element_rect(fill=F), panel.background = element_blank(),  axis.line = element_blank(), axis.text = element_text(size = 11), axis.title = element_text(size = 12), legend.title = element_text(size=11), legend.text = element_text(size = 10), legend.text.align = 0.5, legend.justification = "bottom") + 
-  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) + 
-  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + 
-  guides(fill = guide_colourbar(barheight = 4, barwidth = 1))
-
-# Plot re-ordered similarity matrix heatmap
-MP_plot <- reshape2::melt(nmf_intersect_KEEP[inds_new, inds_new]) 
-p1 <- ggplot(data = nmf_intersect_meltI_NEW, aes(x=Var1, y=Var2, fill=100*value/(100-value), color=100*value/(100-value))) + 
-  geom_tile() + scale_color_gradient2(limits=c(2,25), low=custom_magma[1:111],  mid =custom_magma[112:222], high = custom_magma[223:333], midpoint = 13.5, oob=squish, name="Similarity\n(Jaccard index)") +                                
-  scale_fill_gradient2(limits=c(2,25), low=custom_magma[1:111],  mid =custom_magma[112:222], high = custom_magma[223:333], midpoint = 13.5, oob=squish, name="Similarity\n(Jaccard index)")  +
-  theme( axis.ticks = element_blank(), panel.border = element_rect(fill=F), panel.background = element_blank(),  axis.line = element_blank(), axis.text = element_text(size = 11), axis.title = element_text(size = 12), legend.title = element_text(size=11), legend.text = element_text(size = 10), legend.text.align = 0.5, legend.justification = "bottom") + 
-  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) + 
-  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank()) + 
-  guides(fill = guide_colourbar(barheight = 4, barwidth = 1))
-
-## Annotate metaprograms heatmap
-metaprog_df <- data.frame(Programs = colnames(nmf_intersect_KEEP)[inds_new]) %>% 
-  mutate(Cluster = as.factor(ifelse(Programs %in% Unlist(Cluster_list), yes = names(Unlist(Cluster_list))[match(Programs, Unlist(Cluster_list))], no = "No_Cluster")),
-         Class = scalop::substri(Programs, pos = 2),
-         Location = NA,
-         Sample = scalop::substri(Programs, pos = 1))
-levels(metaprog_df$Cluster) <- list(Neuron = "Cluster_1", Vasc = "Cluster_2", MES.Hyp = "Cluster_3", Mac = "Cluster_4", AC.OPC = "Cluster_5", Oligo = "Cluster_6",
-                                    Chromatin.Reg = "Cluster_7", MES = "Cluster_8", Prolif.Metab = "Cluster_9", MES.Ast = "Cluster_10", Reactive.Ast = "Cluster_11", NPC = "Cluster_12",
-                                    Inflammatory.Mac = "Cluster_13")
-
-##ggbar
-ggbar = function(colVar,
-                 legend_title = NULL,
-                 obs=NULL,
-                 dir=c('h','v'),
-                 cols = c('blue','red','orange','green','magenta')) {
-  
-  L = list(i = obs,col = colVar)
-  lens = sapply(L, length, simplify = F)
-  lens = lens[lens!=0]
-  lens = unlist(lens)
-  
-  stopifnot(length(lens)>0 & length(unique(lens))==1)
-  
-  len = unique(unlist(lens))
-  if (is.null(obs)) obs = 1:len
-  if (is.null(colVar)) colVar = rep('', len)
-  
-  dir = match.arg(dir)
-  d = data.frame(id = obs,
-                 colVar=colVar,
-                 stringsAsFactors=F)
-  
-  d = d %>% dplyr::mutate(id = factor(id, levels = unique(id)))
-  
-  if (dir=='h') {G = ggplot(d, aes(y=1,x=id,fill=colVar))}
-  else {G = ggplot(d, aes(y=id,x=1,fill=colVar))}
-  
-  
-  G + geom_tile() +
-    scale_fill_manual(values=cols, name = legend_title, guide = guide_legend(override.aes = list(size = 10))) +
-    theme_void() +
-    theme(legend.position='top',
-          plot.margin=margin(0,0,0,0,'cm')) 
-}
-
-metaprog_df<-metaprog_df %>%
-  mutate(region = case_when(
-    (Sample=="MGH258") ~"bulk/unannotated",
-    (Sample=="UKF243") ~"bulk/unannotated",
-    (Sample=="UKF248") ~"bulk/unannotated",
-    (Sample=="UKF251") ~"bulk/unannotated",
-    (Sample=="UKF255") ~"bulk/unannotated",
-    (Sample=="UKF259") ~"bulk/unannotated",
-    (Sample=="UKF260") ~"bulk/unannotated",
-    (Sample=="UKF266") ~"bulk/unannotated",
-    (Sample=="UKF269") ~"bulk/unannotated",
-    (Sample=="UKF275") ~"bulk/unannotated",
-    (Sample=="UKF296") ~"bulk/unannotated",
-    (Sample=="UKF304") ~"bulk/unannotated",
-    (Sample=="UKF313") ~"bulk/unannotated",
-    (Sample=="UKF334") ~"bulk/unannotated",
-    (Sample=="ZH881inf") ~"infiltrating",
-    (Sample=="ZH881T1") ~"T1 contrast-enhancing",
-    (Sample=="ZH916bulk") ~"bulk/unannotated",
-    (Sample=="ZH916inf") ~"infiltrating",
-    (Sample=="ZH916T1") ~"T1 contrast-enhancing",
-    (Sample=="ZH1007inf") ~"infiltrating",
-    (Sample=="ZH1007nec") ~"necrotic",
-    (Sample=="ZH1019inf") ~"infiltrating",
-    (Sample=="ZH1019T1") ~"T1 contrast-enhancing",
-    (Sample=="ZH8811Abulk") ~"bulk/unannotated",
-    (Sample=="ZH8811Bbulk") ~"bulk/unannotated",
-    (Sample=="ZH8812bulk") ~"bulk/unannotated",
-  ))
-
-meta_pal<-c("neuron"="#4b4b8f","oligo"="#B95FBB","vascular"="#CF1C90","MES"="#F6CF71","hypoxia"="#F2B701","macrophage"="#80BA5A","inflammatory.resp"="#11A579","AC.OPC"="#f97b72","NPC"="#7F3C8D","chromatin.reg"="#3969AC","AC.MES"="#66C5CC","reactive.astrocyte"="#D4D915","metabolism"="#EF4868")
-
-annotate_clusters <- ggbar(metaprog_df$Cluster, dir = "h", cols =meta_pal, legend_title = "Cluster") + theme(legend.direction = "horizontal")
-#annotate_class <- ggbar(metaprog_df$Sample, dir = "h", cols = scalop::discrete_colours, legend_title = "Class") + theme(legend.direction = "horizontal")
-#annotate_type <- ggbar(metaprog_df$type, dir = "h", cols = met.brewer("Egypt", 3), legend_title = "tumor type") + theme(legend.direction = "horizontal")
-annotate_samples <- ggbar(metaprog_df$Sample, dir = "h", cols = met.brewer("Signac", 26), legend_title = "Sample") + theme(legend.direction = "horizontal")
-annotate_region <- ggbar(metaprog_df$region, dir = "h", cols = met.brewer("Hokusai3", 4), legend_title = "Regional annotation") + theme(legend.direction = "horizontal")
-
-
-# annotate_clusters <- ggbar(metaprog_df$Cluster, dir = "h", cols = MetBrewer::met.brewer("Archambault", nlevels(metaprog_df$Cluster)), legend_title = "Cluster") + theme(legend.direction = "horizontal")
-# #annotate_class <- ggbar(metaprog_df$Sample, dir = "h", cols = scalop::discrete_colours, legend_title = "Class") + theme(legend.direction = "horizontal")
-# annotate_location <- ggbar(metaprog_df$Site, dir = "h", cols = MetBrewer::met.brewer("Degas", 3), legend_title = "Tumor\nLocation") + theme(legend.direction = "horizontal")
-# annotate_samples <- ggbar(metaprog_df$Class, dir = "h", cols = met.brewer("Juarez", 26), legend_title = "Sample") + theme(legend.direction = "horizontal")
-
-MP_plot <- annotate_region + theme(legend.position = "none") + 
-  annotate_samples + theme(legend.position = "none") + 
-  annotate_clusters + theme(legend.position = "none") + 
-  p1 + plot_layout(nrow = 4, heights = c(0.05, 0.05, 0.05, 1), guides = "collect")
-
-#ggplot2::ggsave(filename = here("Analysis/Figures/MetaProgram_Clusters.png"), plot = MP_plot)
-
-lej1 <- cowplot::get_legend(annotate_clusters)
-lej2 <- cowplot::get_legend(annotate_samples)
-lej3 <- cowplot::get_legend(annotate_region)
-grid.newpage()
-grid.draw(lej1)
-grid.newpage()
-grid.draw(lej2)
-grid.newpage()
-grid.draw(lej3)
-
-
-
-########SPOT ASSIGNMENTS TO CLEANED METAPROGRAMS##########
+###### SPOT ASSIGNMENTS TO CLEANED METAPROGRAMS##########
 
 # generate normalized exp matrices
-file_paths <- list.files(path ="general/exp_mats_GBM/counts_mat/", pattern = "\\.rds", full.names = TRUE)
+file_paths <- list.files(path ="general/exp_mats_GBM", pattern = "\\.rds", full.names = TRUE)
 sample_ls <-  gsub(pattern = "\\.rds$", replacement = "", x = basename(file_paths))
 sample_ls->samples_names
 sample_ls->samples
@@ -734,7 +574,6 @@ for (i in seq_along(per_sample_mat)){
   per_sample_mat[[i]] <- m_proc
   names(per_sample_mat)[i] <- sample_ls[[i]]
   rm(m,m_loged, var_filter, exp_genes, m_proc)
-  #saveRDS(m_proc, paste("exp_mats_IDH_mut/NMF_mats/", samples_names[i], ".rds", sep =""))
 }
 
 #generate a list with the filtered exp matrix for each sample, i.e. m_proc<-(per_sample_mat[[1]])
@@ -744,17 +583,17 @@ score_mat <- lapply(c(1:length(per_sample_mat)), function(i){
   signatures <- scalop::sigScores(m_proc, metaprograms_gene_list, expr.center = TRUE, conserved.genes = 0.5)
   
   spot_scores <- data.frame(spot_names = rownames(signatures))
-  spot_scores$neuron <- signatures$neuron
-  spot_scores$vascular<- signatures$vascular
-  spot_scores$hypoxia <- signatures$hypoxia
-  spot_scores$macrophage <- signatures$macrophage
-  spot_scores$oligo <- signatures$oligo
+  spot_scores$Neuron <- signatures$Neuron
+  spot_scores$Vasc<- signatures$Vasc
+  spot_scores$MES.Hyp <- signatures$MES.Hyp
+  spot_scores$Mac <- signatures$Mac
+  spot_scores$Oligo <- signatures$Oligo
   spot_scores$MES <- signatures$MES
-  spot_scores$metabolism <- signatures$metabolism
-  spot_scores$AC.MES <- signatures$AC.MES
-  spot_scores$reactive.astrocyte <- signatures$reactive.astrocyte
+  spot_scores$Prolif.Metab <- signatures$Prolif.Metab
+  spot_scores$MES.Ast <- signatures$MES.Ast
+  spot_scores$Reactive.Ast <- signatures$Reactive.Ast
   spot_scores$NPC <- signatures$NPC
-  spot_scores$inflammatory.resp <- signatures$inflammatory.resp
+  spot_scores$Inflammatory.Mac <- signatures$Inflammatory.Mac
   spot_scores$chromatin.reg <- signatures$chromatin.reg
   spot_scores$OPC <- signatures$OPC
   spot_scores$AC <- signatures$AC
@@ -771,4 +610,3 @@ for (i in seq_along(score_mat)){
   setnames(maxcol_meta,2,"spot_type_meta_new")
   setnames(maxcol_meta,1,"SpotID")
 }
-

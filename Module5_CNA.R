@@ -13,8 +13,7 @@ library(biomaRt)
 
 # Load Data (counts mat exported from Seurat post-spot filtering:
 
-samples_names <- (read.delim("CNA/cna_samples.txt", header = FALSE))$V1
-sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
+samples_names <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
 
 norm_brain_ref1<-readRDS("CNA/normal_brain_ref/UKF256_C.rds")
 colnames(norm_brain_ref1) <- paste(colnames(norm_brain_ref1), "_ref1", sep="") 
@@ -24,78 +23,6 @@ colnames(norm_brain_ref2) <- paste(colnames(norm_brain_ref2), "_ref2", sep="")
 
 
 samples_regions <- read.delim("CNA/samples_regions.txt", header = TRUE)
-
-
-# merged samples cna --------------------------------------------------------
-
-samples_num <- c(15:18)
-merge_cna <- mclapply(samples_num, merge_cna_md_fx, mc.cores = 4)
-
-merge_cna_md_fx <- function(i){
-  m1 <- readRDS(paste("general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
-  m <- cbind(m1,norm_brain_ref1,norm_brain_ref2)
-  
-  scaling_factor <- 1000000/colSums(m) #tumor mat processing
-  m_CPM <- sweep(m, MARGIN = 2, STATS = scaling_factor, FUN = "*")
-  m_loged <- log2(1 + (m_CPM/10))
-  var_filter <- apply(m_loged, 1, var) # removing genes with zero variance across all cells
-  m_proc <- m_loged[var_filter != 0, ]
-  exp_genes <- rownames(m_proc)[(rowMeans(m_proc) > 0.4)] # filtering out lowly expressed genes
-  m_proc <- m_proc[exp_genes, ]
-  
-  # create normal ref
-  ref <-list(colnames(norm_brain_ref1), colnames(norm_brain_ref2))
-  query <- colnames(m_proc)[!is.element(colnames(m_proc), unname(unlist(ref)))]
-  
-  # create metadata table 
-  
-  
-  metadata <- tibble(CellID = colnames(m_proc), 
-                     org_ref = ifelse(colnames(m_proc) %in% unname(unlist(ref)), "reference", "not reference"))
-  
-  metadata$sample <- "control"
-  metadata$region <- "control"
-  
-  if (str_detect(samples_names[i], "merge")) {
-    sapply(c(1:length(samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]])), function(s){
-      s_name <- samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]][s]
-      s_region <- samples_regions$region[samples_regions$cna_samples_name == samples_names[i]][s]
-      metadata$sample <<- ifelse(str_detect(metadata$CellID, s_name), s_name, metadata$sample)
-      metadata$region <<- ifelse(str_detect(metadata$CellID, s_name), s_region, metadata$region)
-    })
-  } else {
-    metadata$sample <- ifelse(metadata$org_ref == "not reference", samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]], metadata$sample)
-    metadata$region <- ifelse(metadata$org_ref == "not reference", samples_regions$region[samples_regions$cna_samples_name == samples_names[i]], metadata$region)
-    
-  }
-  
-  
-  # calc CNA
-  hg19<- readRDS("CNA/hg38.rds")
-  cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
-  sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
-  metadata$CNAsig_org <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]
-  metadata$CNAcor_org <- sig_and_cor$cna_correlation[match(metadata$CellID, names(sig_and_cor$cna_correlation))]
-  
-  # update reference with combined external ref + tumor defined by cna sig / corr thresholds
-  metadata$new_ref <- ifelse((metadata$CNAcor_org <= 0.25 & metadata$CNAsig_org <= 0.13) | (metadata$org_ref == "reference"), "reference", "query")
-  
-  ref <- metadata$CellID[metadata$new_ref == "reference"]
-  query <- colnames(m_proc)[!is.element(colnames(m_proc), unname(unlist(ref)))]
-  
-  # calc CNA with updated ref
-  cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
-  sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
-  metadata$CNAsig <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]
-  metadata$CNAcor <- sig_and_cor$cna_correlation[match(metadata$CellID, names(sig_and_cor$cna_correlation))]
-  
-  metadata$CNAtot <- metadata$CNAcor + (metadata$CNAsig * max(metadata$CNAcor) / max(metadata$CNAsig))
-  
-  fin_cna <- cna_score_mat[,metadata$CellID[metadata$org_ref == "not reference"]]
-  md <- metadata[metadata$org_ref == "not reference",]
-  
-  return(list(md,fin_cna))
-}
 
 
 # all cna + metadata --------------------------------------------------------
@@ -192,7 +119,7 @@ spots_list <- lapply(c(1:26), function(i){
 
 names(spots_list) <- samples_names
 
-find_chr <- genome_break(row.names(cna_comb))
+#find_chr <- genome_break(row.names(cna_comb))
 sig7 <- apply(cna_comb[1772:2006,],2,mean)
 sig10 <- apply(cna_comb[2363:2538,],2,mean)
 
@@ -207,11 +134,81 @@ cna_pl <- infercna::cnaPlot(cna_comb, limit=c(-0.7,0.7), order.cells = spots_lis
 
 cna_pl$p + theme(legend.position = "right")
 
-old_spots_list <- spots_list[rev(c("ZH1019T1","UKF259","UKF255","UKF248","ZH1007nec","UKF251","MGH258","UKF243","ZH1019inf","UKF275","UKF260","UKF313","ZH916T1",
-                                   "ZH1007inf","UKF334","UKF269","ZH8811Bbulk","ZH8811Abulk","ZH916bulk","UKF296","ZH881T1","UKF304","ZH8812bulk","UKF266","ZH881inf","ZH916inf"))]
 
 
-# purity and binning ------------------------------------------------------------------
+# cna merged ---------------------------------------------------------------
+
+samples_names <- (read.delim("CNA/cna_samples.txt", header = FALSE))$V1
+
+samples_num <- c(15:18)
+merge_cna <- mclapply(samples_num, merge_cna_md_fx, mc.cores = 4)
+
+merge_cna_md_fx <- function(i){
+  m1 <- readRDS(paste("general/exp_mats_GBM/", samples_names[i], "counts.rds", sep = ""))
+  m <- cbind(m1,norm_brain_ref1,norm_brain_ref2)
+  
+  scaling_factor <- 1000000/colSums(m) #tumor mat processing
+  m_CPM <- sweep(m, MARGIN = 2, STATS = scaling_factor, FUN = "*")
+  m_loged <- log2(1 + (m_CPM/10))
+  var_filter <- apply(m_loged, 1, var) # removing genes with zero variance across all cells
+  m_proc <- m_loged[var_filter != 0, ]
+  exp_genes <- rownames(m_proc)[(rowMeans(m_proc) > 0.4)] # filtering out lowly expressed genes
+  m_proc <- m_proc[exp_genes, ]
+  
+  # create normal ref
+  ref <-list(colnames(norm_brain_ref1), colnames(norm_brain_ref2))
+  query <- colnames(m_proc)[!is.element(colnames(m_proc), unname(unlist(ref)))]
+  
+  # create metadata table 
+  
+  
+  metadata <- tibble(CellID = colnames(m_proc), 
+                     org_ref = ifelse(colnames(m_proc) %in% unname(unlist(ref)), "reference", "not reference"))
+  
+  metadata$sample <- "control"
+  metadata$region <- "control"
+  
+  if (str_detect(samples_names[i], "merge")) {
+    sapply(c(1:length(samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]])), function(s){
+      s_name <- samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]][s]
+      s_region <- samples_regions$region[samples_regions$cna_samples_name == samples_names[i]][s]
+      metadata$sample <<- ifelse(str_detect(metadata$CellID, s_name), s_name, metadata$sample)
+      metadata$region <<- ifelse(str_detect(metadata$CellID, s_name), s_region, metadata$region)
+    })
+  } else {
+    metadata$sample <- ifelse(metadata$org_ref == "not reference", samples_regions$sample[samples_regions$cna_samples_name == samples_names[i]], metadata$sample)
+    metadata$region <- ifelse(metadata$org_ref == "not reference", samples_regions$region[samples_regions$cna_samples_name == samples_names[i]], metadata$region)
+    
+  }
+  
+  
+  # calc CNA
+  hg19<- readRDS("CNA/hg38.rds")
+  cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
+  sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
+  metadata$CNAsig_org <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]
+  metadata$CNAcor_org <- sig_and_cor$cna_correlation[match(metadata$CellID, names(sig_and_cor$cna_correlation))]
+  
+  # update reference with combined external ref + tumor defined by cna sig / corr thresholds
+  metadata$new_ref <- ifelse((metadata$CNAcor_org <= 0.25 & metadata$CNAsig_org <= 0.13) | (metadata$org_ref == "reference"), "reference", "query")
+  
+  ref <- metadata$CellID[metadata$new_ref == "reference"]
+  query <- colnames(m_proc)[!is.element(colnames(m_proc), unname(unlist(ref)))]
+  
+  # calc CNA with updated ref
+  cna_score_mat <- calc_cna(matrix = m_proc, query = query, ref = ref, genome = hg19, range = c(-3,3), window = 150, noise = 0.15, isLog = TRUE, per_chr = TRUE, scale = NULL, top_genes = NULL, verbose = TRUE)
+  sig_and_cor <- cna_sig_cor(cna_score_mat, epi_cells = query, ref_cells = ref, cna_sig = "abs", top_region = 1/3, top_cells = 1/3)
+  metadata$CNAsig <- sig_and_cor$cna_signal[match(metadata$CellID, names(sig_and_cor$cna_signal))]
+  metadata$CNAcor <- sig_and_cor$cna_correlation[match(metadata$CellID, names(sig_and_cor$cna_correlation))]
+  
+  metadata$CNAtot <- metadata$CNAcor + (metadata$CNAsig * max(metadata$CNAcor) / max(metadata$CNAsig))
+  
+  fin_cna <- cna_score_mat[,metadata$CellID[metadata$org_ref == "not reference"]]
+  md <- metadata[metadata$org_ref == "not reference",]
+  
+  return(list(md,fin_cna))
+}
+# malignancy level and binning ------------------------------------------------------------------
 
 
 all_tot <- sapply(c(1:14), function(i){
@@ -242,80 +239,32 @@ all_tot_split_tmp <- sapply(names(all_tot_merge), function(m){
 all_tot_split <- unlist(all_tot_split_tmp, recursive = F)
 names(all_tot_split) <- sapply(strsplit(names(all_tot_split),"\\."),function(ns){ns[2]})
 
-purity_score <- c(all_tot,all_tot_split)
-purity_score <- purity_score[sample_ls]
+sample_ls <- (read.delim("general/GBM_samples.txt", header = FALSE))$V1
+mal_lev_score <- c(all_tot,all_tot_split)
+mal_lev_score <- mal_lev_score[sample_ls]
 
-min_vl <- min(unlist(purity_score))
-max_vl <- max(unlist(purity_score))
+min_vl <- min(unlist(mal_lev_score))
+max_vl <- max(unlist(mal_lev_score))
 
-purity_score_scaled <- sapply(purity_score, function(p){
+mal_lev_score_scaled <- sapply(mal_lev_score, function(p){
   p_sc <- (p - min_vl)/(max_vl-min_vl)
   return(p_sc)
 })
 
 
-#  malignancy binning ------------------------------------
+# malignancy binning ------------------------------------
 
-hist(c(purity_score_scaled[[15]], purity_score_scaled[[23]]), breaks = 100)
-purity_th <- quantile(c(purity_score_scaled[[15]], purity_score_scaled[[23]]))
+hist(c(mal_lev_score_scaled[[15]], mal_lev_score_scaled[[23]]), breaks = 100)
+mal_lev_th <- quantile(c(mal_lev_score_scaled[[15]], mal_lev_score_scaled[[23]]))
 
-malignancy_bin <- sapply(purity_score_scaled, function(p){
-  bin <- ifelse(p < purity_th[2] , "non_malignant", 
-                ifelse(p >= purity_th[2] & p < purity_th[3], "mix_low", 
-                       ifelse(p >= purity_th[3]  & p < purity_th[4],"mix_high","malignant")))
+malignancy_bin <- sapply(mal_lev_score_scaled, function(p){
+  bin <- ifelse(p < mal_lev_th[2] , "non_malignant", 
+                ifelse(p >= mal_lev_th[2] & p < mal_lev_th[3], "mix_low", 
+                       ifelse(p >= mal_lev_th[3]  & p < mal_lev_th[4],"mix_high","malignant")))
   return(bin)
 })
 
 
-# zh1019 ------------------------------------------------------------------
-
-# plot samples separately 
-
-cna_pl <- infercna::cnaPlot(all_cna[[23]][[2]], limit=c(-0.7,0.7), order.cells = NULL, ratio = NULL)   # plot cna - important that the ratio is set to NULL!
-cna_pl$p + theme(legend.position = "left")
-
-cna_pl <- infercna::cnaPlot(all_cna[[15]][[2]], limit=c(-0.7,0.7), order.cells = NULL, ratio = NULL)   # plot cna - important that the ratio is set to NULL!
-cna_pl$p + theme(legend.position = "left")
-
-# plot samples together
-
-zh1019inf_bin <- malignancy_bin[[15]]
-zh1019t1_bin <- malignancy_bin[[23]]
-names(zh1019inf_bin) <- paste("ZH1019inf_", names(zh1019inf_bin), sep = "")
-names(zh1019t1_bin) <- paste("ZH1019T1_", names(zh1019t1_bin), sep = "")
-zh1019_bin <- c(zh1019inf_bin, zh1019t1_bin)
-
-zh1019inf_purity <- purity_score_scaled[[15]]
-zh1019t1_purity <- purity_score_scaled[[23]]
-names(zh1019inf_purity) <- paste("ZH1019inf_", names(zh1019inf_purity), sep = "")
-names(zh1019t1_purity) <- paste("ZH1019T1_", names(zh1019t1_purity), sep = "")
-zh1019_purity <- c(zh1019inf_purity, zh1019t1_purity)
-spots_by_purity <- names(sort(zh1019_purity))
-
-zh1019_md <- merge_cna[[1]][[1]]
-zh1019_cna <- merge_cna[[1]][[2]]
-ord_cna <- zh1019_cna[,spots_by_purity]
-
-least_pure_sig <- apply(ord_cna[,1:259], 1, mean)
-ord_cna_clean <- ord_cna - least_pure_sig
-
-cna_pl <- infercna::cnaPlot(ord_cna_clean, limit=c(-0.7,0.7), order.cells = F, ratio = NULL)   # plot cna - important that the ratio is set to NULL!
-anno_plot <- cna_pl$p + theme(legend.position = "right")
-
-samp_col<- c(ZH1019inf="palegreen1", ZH1019T1 ="darkgreen")
-bin_col<- c(malignant="#7c1d6f", mix_high = "#C77CFF", mix_low="#F2B701", non_malignant="#fcde9c")
-annotate_sample <- ggbar(zh1019_md$sample[match(zh1019_md$CellID,colnames(ord_cna_clean))], dir = "v",legend_title = "sample", cols = samp_col) + theme(legend.direction = "vertical")
-annotate_purity <- ggbar(as.character(zh1019_bin[colnames(ord_cna_clean)]), dir = "v", legend_title = "purity binning", cols = bin_col) + theme(legend.direction = "vertical")
-
-anno_plot + annotate_sample + theme(legend.position = "none") + annotate_purity + theme(legend.position = "none") + plot_layout(ncol = 4, widths = c(1, 0.05, 0.05, 0.05), guides = "collect")
-
-# extract the legends to paste them later in power-point :)
-lej1 <- cowplot::get_legend(annotate_sample)
-lej2 <- cowplot::get_legend(annotate_purity)
-grid.newpage()
-grid.draw(lej1)
-grid.newpage()
-grid.draw(lej2)
 
 
 ######## Functions ---------------------------------------------------------------
@@ -847,4 +796,3 @@ ggbar = function(colVar,
     theme(legend.position='top',
           plot.margin=margin(0,0,0,0,'cm')) 
 }
-
