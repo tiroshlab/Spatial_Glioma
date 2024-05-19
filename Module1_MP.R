@@ -210,6 +210,44 @@ sapply(c(1:26), function(i){
 })
 
 
+######generating input matrices for NMF
+# vector of file paths
+file_paths <- list.files(path ="/general/exp_mats_GBM/", pattern = "\\.rds", full.names = TRUE)#directory with counts mats
+sample_ls <-  gsub(pattern = "\\.rds$", replacement = "", x = basename(file_paths))
+per_sample_mat <- lapply(file_paths, readRDS)
+
+for (i in seq_along(per_sample_mat)){ 
+  m <- as.matrix(per_sample_mat[[i]])
+  if(min(colSums(m)) == 0){m <- m[, colSums(m) != 0]}
+  scaling_factor <- 1000000/colSums(m)
+  m_CPM <- sweep(m, MARGIN = 2, STATS = scaling_factor, FUN = "*")
+  m_loged <- log2(1 + (m_CPM/10))
+  
+  # removing genes with zero variance across all cells
+  var_filter <- apply(m_loged, 1, var)
+  m_proc <- m_loged[var_filter != 0, ]
+  # filtering out lowly expressed genes
+  exp_genes <- rownames(m_proc)[(rowMeans(m_proc) > 0.4)]
+  m_proc <- m_proc[exp_genes, ]
+  
+  # centering data gene-wise
+  count_mat_cent<- m_proc - rowMeans(m_proc)
+  #nmf preprocessing
+  count_mat_nmf<- count_mat_cent
+  count_mat_nmf[count_mat_nmf<0] <- 0 # negative values should be set to 0 in initial matrix
+  
+  # output to a list of gene expression profiles (GEP)
+  per_sample_mat[[i]] <- count_mat_nmf
+  names(per_sample_mat)[i] <- sample_ls[[i]]
+  rm(m,m_loged, var_filter, exp_genes, m_proc,count_mat_cent)
+  #saveRDS(count_mat_nmf, paste("MP/NMF/NMF_mats_GBM/", samples_names[i], ".rds", sep =""))
+}
+
+
+## Extract sample names for sample list file:
+#samples <- list.files("MP/NMF/NMF_mats_GBM/") %>% substri(., pos = 1) %>% str_c(., collapse = "\n")
+#write_lines(samples, ("/samples.txt"), sep = "\n")
+
 
 
 
