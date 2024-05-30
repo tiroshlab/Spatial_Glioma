@@ -34,5 +34,7 @@ The MP generation approach is based on our earlier work described in Kinker et a
 
 The Inputs file contains an additional README regarding alignment of Visium and CODEX samples. 
 
+You can find the Visium H&E [here](https://drive.google.com/file/d/19ROs5wKtDH-RLqELFFBeEexKScW20FJL/view?usp=drive_link). 
+
 Requirements
 R (tested in version 4.1.1).
