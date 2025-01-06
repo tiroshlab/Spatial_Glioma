@@ -28,9 +28,11 @@ Please note results of modules 1-3 might slightly differ dependending on the ver
 
 Each code module can be run independently.
 
-The code uploaded here is the working code being used throughout the work on the project. We are currently working on generating a more user-friendly, readable and easy to run code. 
+The code uploaded here is the working code being used throughout the work on the project. 
 
 The MP generation approach is based on our earlier work described in Kinker et al. 2020 and Gavish et al. 2023.  Further documentation can be found [here](https://github.com/gabrielakinker/CCLE_heterogeneity) and [here](https://github.com/tiroshlab/3ca).
+
+We have updated Module 2 to include the code used to generate Figures 4A-C and clarified which code was used for different panels.   
 
 The Inputs file contains an additional README regarding alignment of Visium and CODEX samples. 
 
