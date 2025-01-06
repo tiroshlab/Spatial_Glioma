@@ -12,10 +12,213 @@ gen_clusters <- as.character(unique(unlist(sapply(c(1:length(sample_ls)), functi
   return(unique(mp_assign$spot_type_meta_new))
 }))))
 
+
+
+# calculate spatial coherence (Figures 4A-C) --------
+
+rand_num <- 100
+
+sapply(c(1:length(sample_ls)), function(i){
+  
+  print(sample_ls[i])
+  
+  # load data
+  spots_positions <- read.csv(paste("general/GBM_data/", sample_ls[i] , "/outs/spatial/tissue_positions_list.csv", sep = ""), header = FALSE, stringsAsFactors = FALSE)
+  row.names(spots_positions) <- spots_positions$V1
+  
+  spots_clusters <- readRDS(paste("MP/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- na.omit(spots_clusters)
+  colnames(spots_clusters) <- c("barcodes", "spot_type")
+  row.names(spots_clusters)<- spots_clusters$barcodes  
+  
+  # abundance 
+  
+  programs_comp <- sample_programs_composition(spots_clusters,gen_clusters)
+  
+  # neighbors tables   
+  
+  neighbors_table <- neighbors_table_func(spots_positions,spots_clusters)
+  
+  rand_neighbors_table <- lapply(c(1:rand_num), function(i){
+    new_pos <- sample(spots_positions$V1, length(spots_positions$V1), replace = FALSE)
+    pos_table <- spots_positions
+    pos_table$V1 <- new_pos
+    pos_table$V2 <- spots_positions[new_pos, "V2"]
+    
+    neighbors_table <- neighbors_table_func(pos_table,spots_clusters)
+    return(neighbors_table)
+  })
+  
+  
+  # spatial coherence
+  
+  programs_spatial_score <- sapply(sort(gen_clusters), function(cluster){
+    if (!(cluster %in% spots_clusters$spot_type)) {
+      prog_score <- NaN
+    } else {
+      program_neighbors_table = neighbors_table[row.names(neighbors_table) %in% spots_clusters$barcodes[spots_clusters$spot_type == cluster],]
+      obs <- obs_program_spatial_score(program_neighbors_table, cluster)
+      one_spatial_score <- one_val(dim(program_neighbors_table)[1])
+      zero_spatial_score <- zero_val(rand_neighbors_table, spots_clusters, cluster)
+      if (obs>one_spatial_score){obs <- one_spatial_score}
+      if (obs<zero_spatial_score){obs <- zero_spatial_score}
+      
+      prog_score <- (obs - zero_spatial_score)/(one_spatial_score - zero_spatial_score)
+    }
+    return(prog_score)
+  })
+  
+  saveRDS(programs_spatial_score, "save_path")
+})
+
+# plot 
+
+sapply(c(1:length(sample_ls)), function(i){
+  
+  print(sample_ls[i])
+  
+  # load data
+  spots_clusters <- readRDS(paste("MP/mp_assign/mp_assign_124/", sample_ls[i], ".rds", sep = ""))
+  spots_clusters <- na.omit(spots_clusters)
+  colnames(spots_clusters) <- c("barcodes", "spot_type")
+  row.names(spots_clusters)<- spots_clusters$barcodes  
+  
+  # abundance 
+  
+  programs_comp <- sample_programs_composition(spots_clusters,gen_clusters)
+  saveRDS(programs_comp, paste("save_path_abund", sample_ls[i],"_nodes_abund.rds", sep = ""))
+})
+
+all_comp <- list.files("save_path_abund")
+
+compositions <- sapply(all_comp, function(comp){
+  samp_comp <- readRDS(paste("save_path_abund", comp, sep = ""))
+  return(samp_comp)
+})
+
+colnames(compositions) <- as.character(sapply(colnames(compositions), function(x){substr(x, 1, nchar(x)-16)}))
+
+all_spatial_score <- list.files("save_path")
+
+spatial_score <- sapply(all_spatial_score, function(s_score){
+  samp_scores <- readRDS(paste("save_path", s_score, sep = ""))
+  return(samp_scores)
+})
+
+
+spatial_score <- as.data.frame(spatial_score)
+colnames(spatial_score) <- as.character(sapply(colnames(spatial_score), function(x){substr(x,1, nchar(x)-18)}))
+
+new_score <- ifelse(compositions < 0.05, 0,1) * spatial_score # filtered <0.05
+new_score[new_score == 0] <- NA
+
+new_score$metaprogram <- row.names(spatial_score)
+spatial_score_filt <- new_score
+
+
+
+mal_mp <- c("AC", "NPC", "OPC", "MES", "chromatin.reg", "AC.MES", "metabolism", "inflammatory.resp", "macrophage", "vascular", "oligo", "reactive.astrocyte")
+prog_order <- rev(spatial_score_filt$metaprogram[order(apply(spatial_score_filt[,c(1:length(sample_ls))],1, function(x){mean(na.omit(x[x!=0]))}))])
+samples_order <- rev(colnames(spatial_score_filt)[c(1:length(sample_ls))][order(apply(spatial_score_filt[spatial_score_filt$metaprogram %in% c("AC", "NPC", "OPC", "MES", "chromatin.reg", "AC.MES", "inflammatory.resp", "macrophage", "vascular","oligo", "reactive.astrocyte"),c(1:length(sample_ls))],2, function(x){mean(na.omit(x[x!=0]))}))])
+
+spatial_long <- melt(setDT(spatial_score_filt), id.vars = "metaprogram", variable.name = "sample", value.name = "spatial_score")
+spatial_long <- spatial_long[spatial_long$spatial_score != 0,]
+
+
+spatial_long$sample <- factor(spatial_long$sample, levels = samples_order)
+spatial_long$metaprogram <- factor(spatial_long$metaprogram, levels = prog_order)
+
+mp_spatial_mean <- as.data.frame(apply(new_score[,c(1:26)],1, function(x){mean(na.omit(x))}))
+colnames(mp_spatial_mean) <- c("mean_spatial")
+mp_spatial_mean$metaprogram <- new_score$metaprogram
+mp_spatial_mean$sd <- apply(new_score[,c(1:26)],1, function(x){sd(na.omit(x))})
+mp_ord_tmp <- apply(new_score[,c(1:26)],1, function(x){mean(na.omit(x))})
+names(mp_ord_tmp) <- new_score$metaprogram
+mp_ord <- names(sort(mp_ord_tmp, decreasing = T))
+
+mp_spatial_mean$metaprogram <- factor(mp_spatial_mean$metaprogram, levels = mp_ord)
+
+samp_pal<-met.brewer("Veronese",26)
+meta_pal<-c("hypoxia"="#F2B701", "MES"="#F6CF71", "AC.MES"="#66C5CC","AC"="#E68310","OPC"="#f97b72", "NPC"="#7F3C8D","chromatin.reg"="#3969AC", "metabolism"="#EF4868", "neuron"="#4b4b8f","oligo"="#B95FBB", "reactive.astrocyte"="#D4D915", "macrophage"="#80BA5A", "inflammatory.resp"="#11A579","vascular"="#CF1C90")
+
+# plot was not not used in paper
+p1_mp <- ggplot(spatial_long, aes(x=factor(metaprogram), y=spatial_score, fill = sample)) + 
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=1.5) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size= 12, angle = 45, vjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold"),
+        plot.title = element_text(size=14, face="bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank()) + 
+  ylab("spatial cohernece score") +
+  xlab("metaprogram") +
+  ggtitle("Spatial Coherence by Cancer Metaprogram") +
+  scale_fill_manual(values = samp_pal)
+
+# fig 4C
+p2_mp <- ggplot(data=mp_spatial_mean, aes(x=metaprogram, y=mean_spatial, group=1)) + 
+  geom_line(color = "grey", size = 2)+
+  geom_point() +
+  geom_errorbar(aes(ymin=mean_spatial-sd, ymax=mean_spatial+sd), width=.2,
+                position=position_dodge(0.05)) + theme_minimal() +
+  theme(axis.text.x = element_text(size= 12, angle = 45, vjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold"),
+        plot.title = element_text(size=14, face="bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank()) + 
+  ylab("mean spatial cohernece score") 
+
+#fig 4B
+p1_samp <- ggplot(spatial_long[spatial_long$metaprogram %in% c("AC", "NPC", "OPC", "MES", "chromatin.reg", "AC.MES", "inflammatory.resp", "macrophage", "vascular","oligo", "reactive.astrocyte")], aes(x=factor(sample), y=spatial_score, fill = metaprogram)) + 
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=1.5) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size= 12, angle = 45, vjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold"),
+        plot.title = element_text(size=14, face="bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank()) + 
+  ylab("spatial cohernece score") +
+  xlab("sample") +
+  ggtitle("Spatial Coherence by samples") +
+  scale_fill_manual(values = meta_pal)
+
+#[ plot was not used in paper]
+spatial_mean <- as.data.frame(apply(new_score[c(1:3,5:7,10,12,14),c(1:26)],2, function(x){mean(na.omit(x))})) # claculate mean spatial coherence excluding hypoxia and metabolism and normal brain (oligo, neuron and reactive.ast) 
+colnames(spatial_mean) <- c("mean_spatial")
+spatial_mean$sample <- row.names(spatial_mean)
+spatial_mean$sd <- apply(new_score[c(1:3,5:7,10,12,14),c(1:26)],2, function(x){sd(na.omit(x))})
+
+samples_ord <- names(sort(apply(new_score[c(1:3,5:7,10,12,14),c(1:26)],2, function(x){mean(na.omit(x))}), decreasing = T))
+
+spatial_mean$sample <- factor(spatial_mean$sample, levels = samples_ord)
+
+p2_samp <- ggplot(data=spatial_mean[spatial_mean$sample,], aes(x=sample, y=mean_spatial, group=1)) +
+  geom_line(color = "grey", size = 2)+
+  geom_point() + 
+  geom_errorbar(aes(ymin=mean_spatial-sd, ymax=mean_spatial+sd), width=.2,
+                position=position_dodge(0.05)) + theme_minimal() +
+  theme(axis.text.x = element_text(size= 12, angle = 45, vjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold"),
+        plot.title = element_text(size=14, face="bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank()) + 
+  ylab("mean spatial cohernece score") 
+
+
+
+# calculate spatial coherence by window to define structured vs organized spots (Figures 4D-E) (Alt. skip and use saved results in next section) ----------------------------------------------------------
+
 win_size <- 5 # run for c(5,8,11) 
 rand_num <- 100
 
-# calculate spatial coherence by window (Alt. skip and use saved results in next section) ----------------------------------------------------------
 
 samples_num <- c(1:length(sample_ls))
 all_scores <- mclapply(samples_num, all_scores_fx, mc.cores = 26)
